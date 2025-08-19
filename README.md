@@ -1,7 +1,7 @@
 # rust-yaml
 
-[![CI](https://github.com/elioetibr/rust-yaml-private/actions/workflows/ci.yml/badge.svg)](https://github.com/elioetibr/rust-yaml-private/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/elioetibr/rust-yaml-private/branch/main/graph/badge.svg)](https://codecov.io/gh/elioetibr/rust-yaml)
+[![CI](https://github.com/elioetibr/rust-yaml/actions/workflows/ci.yml/badge.svg)](https://github.com/elioetibr/rust-yaml/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/elioetibr/rust-yaml/branch/main/graph/badge.svg)](https://codecov.io/gh/elioetibr/rust-yaml)
 [![Crates.io](https://img.shields.io/crates/v/rust-yaml.svg)](https://crates.io/crates/rust-yaml)
 [![docs.rs](https://docs.rs/rust-yaml/badge.svg)](https://docs.rs/rust-yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -85,7 +85,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rust-yaml = "0.0.1"
+rust-yaml = "0.0.2"
 ```
 
 ### Basic Usage
@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse YAML from a string
     let yaml_content = r#"
         name: "rust-yaml"
-        version: "0.0.1"
+        version: "0.0.2"
         features:
           - fast
           - safe
@@ -375,7 +375,7 @@ cargo test --features large-documents
 
 ```toml
 [dependencies]
-rust-yaml = { version = "0.0.1", features = ["serde", "large-documents"] }
+rust-yaml = { version = "0.0.2", features = ["serde", "large-documents"] }
 ```
 
 - **`default = ["mmap", "preserve-order"]`**: Default feature set with memory mapping and order preservation

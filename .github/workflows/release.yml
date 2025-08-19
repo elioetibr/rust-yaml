@@ -1,4 +1,4 @@
-name: Publish
+name: Publish to crates.io
 
 # This workflow handles publishing to crates.io and creating release artifacts.
 # It assumes that tests have already passed (via CI workflow or manual verification).
@@ -39,48 +39,23 @@ jobs:
     name: Validate Release
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.get_version.outputs.version }}
       should_publish: ${{ steps.check.outputs.should_publish }}
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Generate GitHub App Token
-        id: github_app_auth
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.APP_ID }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          private-key: ${{ secrets.PRIVATE_KEY }}
-
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: "0"
 
-      - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
-
-      - name: Get version
-        id: get_version
+      - name: Extract version
+        id: version
         run: |
           if [ "${{ github.event_name }}" = "release" ]; then
-            # Extract version from tag (remove 'v' prefix if present)
             VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"
+            VERSION="${VERSION#v}"  # Remove 'v' prefix if present
           else
-            # Use version from workflow dispatch input
             VERSION="${{ github.event.inputs.version }}"
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Publishing version: ${VERSION}"
-
-      - name: Validate version format
-        run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          if ! echo "${VERSION}" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$'; then
-            echo "❌ Invalid version format: ${VERSION}"
-            echo "Version must follow semantic versioning (e.g., 1.0.0, 1.0.0-beta.1)"
-            exit 1
-          fi
+          echo "📦 Version to publish: ${VERSION}"
 
       - name: Check if should publish
         id: check
@@ -120,13 +95,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-edit
-        run: cargo install cargo-edit
-
-      - name: Set version in Cargo.toml
-        run: |
-          cargo set-version ${{ needs.validate.outputs.version }}
-          echo "Updated Cargo.toml to version ${{ needs.validate.outputs.version }}"
+      - name: Crates.io Authentication
+        id: auth
+        if: github.event.inputs.dry_run != 'true'
+        uses: rust-lang/crates-io-auth-action@v1
 
       - name: Verify package
         run: |
@@ -139,6 +111,7 @@ jobs:
           echo "Package contains ${PACKAGE_SIZE} files"
 
       - name: Check crates.io status
+        if: github.event.inputs.dry_run != 'true'
         id: check_crates
         run: |
           CRATE_NAME="rust-yaml"
@@ -153,13 +126,15 @@ jobs:
           fi
 
       - name: Publish to crates.io
+        if: github.event.inputs.dry_run != 'true'
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
           cargo publish --token "${CARGO_REGISTRY_TOKEN}" --verbose
           echo "🎉 Successfully published version ${{ needs.validate.outputs.version }} to crates.io"
 
       - name: Verify publication
+        if: github.event.inputs.dry_run != 'true'
         run: |
           echo "Waiting for crates.io to index the new version..."
           sleep 60
@@ -177,7 +152,9 @@ jobs:
   publish-docs:
     name: Publish Documentation
     needs: [validate, publish-crate]
-    if: needs.validate.outputs.should_publish == 'true'
+    if: |
+      success() &&
+      needs.validate.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -227,6 +204,7 @@ jobs:
           path: target/doc
 
       - name: Deploy to GitHub Pages
+        if: github.event.inputs.dry_run != 'true'
         uses: actions/deploy-pages@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -240,8 +218,8 @@ jobs:
 
   create-release-artifacts:
     name: Create Release Artifacts
-    needs: [validate]
-    if: github.event_name == 'release'
+    needs: [validate, publish-crate, publish-docs]
+    if: success() && github.event.inputs.dry_run != 'true' && github.event_name == 'release'
     strategy:
       matrix:
         include:

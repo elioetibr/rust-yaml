@@ -1,16 +1,82 @@
 [package]
 name = "rust-yaml"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
 edition = "2024"
+rust-version = "1.89.0"
 description = "A fast, safe YAML 1.2 library for Rust"
 documentation = "https://docs.rs/rust-yaml"
 readme = "README.md"
-repository = "https://github.com/elioetibr/rust-yaml-private"
+repository = "https://github.com/elioetibr/rust-yaml"
 license = "MIT OR Apache-2.0"
 keywords = ["configuration", "markup", "parser", "serialization", "yaml"]
 categories = ["config", "encoding", "parser-implementations"]
-rust-version = "1.85.0"
+exclude = [
+  # Version control
+  ".git/",
+  ".gitattributes",
+  ".gitignore",
+  ".gitmessage",
+  ".githooks/",
+  
+  # CI/CD and GitHub
+  ".github/",
+  ".gitlab-ci.yml",
+  ".travis.yml",
+  
+  # Development tools and configs
+  ".cargo/",
+  ".claude/",
+  ".clippy.toml",
+  ".idea/",
+  ".vscode/",
+  ".pre-commit-config.yaml",
+  ".secrets.baseline",
+  ".markdownlint.json",
+  ".nvmrc",
+  "deny.toml",
+  "GitVersion.yml",
+  "Makefile",
+  
+  # Node.js/JavaScript files
+  "node_modules/",
+  "package.json",
+  "package-lock.json",
+  "commitlint.config.js",
+  
+  # Documentation and community files
+  "docs/",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "CLAUDE.md",
+  
+  # Build artifacts and caches
+  "target/",
+  "Cargo.lock",  # For libraries
+  "lcov.info",
+  "*.profraw",
+  "*.profdata",
+  
+  # Benchmarks (optional, include if you want them in the package)
+  "benches/",
+  
+  # Test files (tests/ should be included for cargo test)
+  "test-data/",
+  
+  # Editor and OS files
+  "*.swp",
+  "*.swo",
+  "*~",
+  ".DS_Store",
+  "Thumbs.db",
+  "*.log",
+  "*.bak",
+  "*.tmp",
+  
+  # Examples (optional, you might want to include these)
+  # "examples/",
+]
 
 [package.metadata.docs.rs]
 # Build docs with all features on docs.rs
