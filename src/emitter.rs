@@ -491,14 +491,7 @@ impl BasicEmitter {
                 self.write_indent(writer)?;
             } else {
                 // Simple key
-                match key {
-                    Value::String(s) => {
-                        self.emit_string(s, writer)?;
-                    }
-                    _ => {
-                        self.emit_scalar(key, writer)?;
-                    }
-                }
+                self.emit_scalar(key, writer)?;
             }
 
             write!(writer, ": ")?;
@@ -562,14 +555,7 @@ impl BasicEmitter {
                 self.write_indent(writer)?;
             } else {
                 // Simple key
-                match key {
-                    Value::String(s) => {
-                        self.emit_string(s, writer)?;
-                    }
-                    _ => {
-                        self.emit_scalar(key, writer)?;
-                    }
-                }
+                self.emit_scalar(key, writer)?;
             }
 
             write!(writer, ": ")?;
@@ -604,10 +590,13 @@ impl BasicEmitter {
             }
             first = false;
 
-            // Emit key
+            // Emit key (handle nested complex values)
             match key {
-                Value::String(s) => {
-                    self.emit_string(s, writer)?;
+                Value::Mapping(nested_map) => {
+                    self.emit_mapping_flow_style(nested_map, writer)?;
+                }
+                Value::Sequence(nested_seq) => {
+                    self.emit_sequence_flow_style(nested_seq, writer)?;
                 }
                 _ => {
                     self.emit_scalar(key, writer)?;
@@ -616,8 +605,18 @@ impl BasicEmitter {
 
             write!(writer, ": ")?;
 
-            // Emit value
-            self.emit_scalar(value, writer)?;
+            // Emit value (handle nested complex values)
+            match value {
+                Value::Mapping(nested_map) => {
+                    self.emit_mapping_flow_style(nested_map, writer)?;
+                }
+                Value::Sequence(nested_seq) => {
+                    self.emit_sequence_flow_style(nested_seq, writer)?;
+                }
+                _ => {
+                    self.emit_scalar(value, writer)?;
+                }
+            }
         }
         write!(writer, "}}")?;
         Ok(())
@@ -632,7 +631,18 @@ impl BasicEmitter {
                 write!(writer, ", ")?;
             }
             first = false;
-            self.emit_scalar(item, writer)?;
+            // Handle nested complex values
+            match item {
+                Value::Mapping(nested_map) => {
+                    self.emit_mapping_flow_style(nested_map, writer)?;
+                }
+                Value::Sequence(nested_seq) => {
+                    self.emit_sequence_flow_style(nested_seq, writer)?;
+                }
+                _ => {
+                    self.emit_scalar(item, writer)?;
+                }
+            }
         }
         write!(writer, "]")?;
         Ok(())
