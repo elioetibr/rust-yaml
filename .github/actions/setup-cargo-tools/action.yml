@@ -1,0 +1,56 @@
+name: 'Setup Cargo Tools Cache'
+description: 'Setup caching for cargo tools like cargo-audit, cargo-llvm-cov, etc.'
+inputs:
+  tools:
+    description: 'Space-separated list of tools to install and cache'
+    required: true
+    default: ''
+  arch:
+    description: 'Architecture (x86_64, aarch64, etc.)'
+    required: false
+    default: 'x86_64'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect architecture
+      id: detect-arch
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.arch }}" ]; then
+          echo "arch=${{ inputs.arch }}" >> $GITHUB_OUTPUT
+        else
+          ARCH=$(uname -m)
+          case $ARCH in
+            x86_64) echo "arch=x86_64" >> $GITHUB_OUTPUT ;;
+            aarch64|arm64) echo "arch=aarch64" >> $GITHUB_OUTPUT ;;
+            *) echo "arch=$ARCH" >> $GITHUB_OUTPUT ;;
+          esac
+        fi
+        # Replace spaces with dashes for cache key
+        TOOLS_KEY=$(echo "${{ inputs.tools }}" | tr ' ' '-')
+        echo "tools-key=$TOOLS_KEY" >> $GITHUB_OUTPUT
+
+    - name: Cache cargo tools
+      id: cache-cargo-tools
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin
+        key: ${{ runner.os }}-${{ steps.detect-arch.outputs.arch }}-cargo-tools-${{ steps.detect-arch.outputs.tools-key }}-${{ hashFiles('~/.cargo/bin/*') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ steps.detect-arch.outputs.arch }}-cargo-tools-${{ steps.detect-arch.outputs.tools-key }}-
+          ${{ runner.os }}-${{ steps.detect-arch.outputs.arch }}-cargo-tools-
+          ${{ runner.os }}-cargo-tools-${{ steps.detect-arch.outputs.tools-key }}-
+          ${{ runner.os }}-cargo-tools-
+
+    - name: Install cargo tools
+      if: steps.cache-cargo-tools.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        # Handle space-separated tools list
+        for tool in ${{ inputs.tools }}; do
+          if [ -n "$tool" ]; then
+            echo "Installing $tool..."
+            cargo install "$tool" || echo "Failed to install $tool"
+          fi
+        done

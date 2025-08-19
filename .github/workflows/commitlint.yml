@@ -1,0 +1,221 @@
+name: Commit Lint
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  commitlint:
+    name: Commit Message Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Use Node.js version from .nvmrc for consistency
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Install commitlint dependencies
+        run: |
+          npm install --save-dev @commitlint/{config-conventional,cli}
+
+      - name: Validate current commit (on push)
+        if: github.event_name == 'push'
+        run: |
+          echo "Validating commit: ${{ github.event.head_commit.message }}"
+          echo "${{ github.event.head_commit.message }}" | npx commitlint
+
+      - name: Validate PR commits (on pull request)
+        if: github.event_name == 'pull_request'
+        run: |
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      - name: Comment on PR with commit lint results
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo, number } = context.issue;
+
+            const comment = `## 📝 Commit Message Validation Failed
+
+            Your commit messages don't follow our [conventional commit](https://www.conventionalcommits.org/) format.
+
+            ### Expected Format:
+            \`\`\`
+            <type>(<scope>): <description>
+
+            [optional body]
+
+            [optional footer]
+            \`\`\`
+
+            ### Examples:
+            - \`feat(parser): add support for complex mapping keys\`
+            - \`fix(emitter): resolve string quoting for version numbers\`
+            - \`docs: update installation instructions\`
+            - \`test(scanner): add edge case tests for indentation\`
+            - \`chore: bump version to 1.1.0 [skip ci]\`
+
+            ### Valid Types:
+            \`init\`, \`build\`, \`ci\`, \`chore\`, \`docs\`, \`feat\`, \`fix\`, \`perf\`, \`refactor\`, \`revert\`, \`style\`, \`test\`
+
+            ### Valid Scopes (optional):
+            \`parser\`, \`scanner\`, \`emitter\`, \`composer\`, \`constructor\`, \`lib\`, \`cli\`, \`docs\`, \`tests\`, \`benches\`, \`examples\`, \`ci\`, \`deps\`, \`release\`
+
+            ### Special Markers:
+            - **Semver control**: \`+semver: major|minor|patch|none\`
+            - **CI control**: \`[skip ci]\` or \`[ci skip]\` to skip CI builds
+            - **Breaking changes**: \`BREAKING CHANGE: description\`
+
+            Please fix your commit messages and force push to update this PR.
+
+            For more details, see our [commit message template](.gitmessage).`;
+
+            github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: number,
+              body: comment
+            });
+
+  conventional-commit-check:
+    name: Conventional Commit Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Check conventional commits
+        uses: webiny/action-conventional-commits@v1.3.0
+        with:
+          allowed-commit-types: "init,build,ci,chore,docs,feat,fix,perf,refactor,revert,style,test"
+          allow-merge-commits: true
+          allow-revert-commits: true
+
+  commit-message-validator:
+    name: Custom Commit Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Validate commit messages
+        run: |
+          # Get commits to validate
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMITS=$(git rev-list --no-merges ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          else
+            COMMITS="${{ github.sha }}"
+          fi
+
+          echo "Validating commits: $COMMITS"
+
+          INVALID_COMMITS=""
+
+          for commit in $COMMITS; do
+            message=$(git log --format=%B -n 1 $commit)
+            subject=$(echo "$message" | head -n 1)
+
+            echo "Checking commit: $commit"
+            echo "Subject: $subject"
+
+            # Allow merge commits
+            if echo "$subject" | grep -q "^Merge "; then
+              echo "✅ Merge commit - skipping validation"
+              continue
+            fi
+
+            # Allow revert commits
+            if echo "$subject" | grep -q "^Revert "; then
+              echo "✅ Revert commit - skipping validation"
+              continue
+            fi
+
+            # Allow version bump commits with [skip ci]
+            if echo "$subject" | grep -q "^chore.*\[skip ci\]"; then
+              echo "✅ Version bump commit - skipping validation"
+              continue
+            fi
+
+            # Allow initial commit (with common typos)
+            if echo "$subject" | grep -qE "^init: [Ii]nit(i)?al [Cc]ommit$"; then
+              echo "✅ Initial commit - skipping validation"
+              continue
+            fi
+
+            # Check conventional commit format
+            if ! echo "$subject" | grep -qE "^(init|build|ci|chore|docs|feat|fix|perf|refactor|revert|style|test)(\(.+\))?: .+"; then
+              echo "❌ Invalid commit format: $subject"
+              INVALID_COMMITS="$INVALID_COMMITS\n- $commit: $subject"
+            else
+              echo "✅ Valid commit format"
+            fi
+          done
+
+          if [ -n "$INVALID_COMMITS" ]; then
+            echo ""
+            echo "❌ Found invalid commit messages:"
+            echo -e "$INVALID_COMMITS"
+            echo ""
+            echo "Please follow conventional commit format:"
+            echo "  <type>(<scope>): <description>"
+            echo ""
+            echo "Valid types: init, build, ci, chore, docs, feat, fix, perf, refactor, revert, style, test"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All commit messages are valid!"

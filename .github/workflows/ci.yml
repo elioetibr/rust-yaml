@@ -1,0 +1,839 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "benches/**"
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "benches/**"
+
+permissions:
+  contents: read
+  id-token: write
+  pages: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+  CARGO_INCREMENTAL: 1
+  RUST_BACKTRACE: 1
+
+jobs:
+  version:
+    name: Version Info
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    outputs:
+      informational_version: ${{ steps.gitversion.outputs.InformationalVersion }}
+      major_minor_patch: ${{ steps.gitversion.outputs.MajorMinorPatch }}
+      sem_version: ${{ steps.gitversion.outputs.SemVer }}
+      version: ${{ steps.gitversion.outputs.MajorMinorPatch }}
+      major: ${{ steps.gitversion.outputs.Major }}
+      minor: ${{ steps.gitversion.outputs.Minor }}
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v4.1.0
+        with:
+          versionSpec: "6.x"
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v4.1.0
+        with:
+          configFilePath: GitVersion.yml
+
+      - name: Display version info
+        run: |
+          echo "Version: ${{ steps.gitversion.outputs.SemVer }}"
+          echo "Informational Version: ${{ steps.gitversion.outputs.InformationalVersion }}"
+          echo "Branch Name: ${{ steps.gitversion.outputs.BranchName }}"
+          echo "SHA: ${{ steps.gitversion.outputs.Sha }}"
+
+  test:
+    name: Test Suite (${{ matrix.rust }} - ${{ matrix.os }} / ${{ matrix.arch }})
+    needs: version
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, beta, nightly]
+        os: [ubuntu-latest, windows-2025, macos-15]
+        arch: [x86_64, aarch64]
+        exclude:
+          # Exclude combinations that don't exist
+          - os: windows-2025
+            arch: aarch64
+        include:
+          # Add rust-target for each valid combination
+          - os: ubuntu-latest
+            arch: x86_64
+            rust-target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: aarch64
+            rust-target: aarch64-unknown-linux-gnu
+          - os: windows-2025
+            arch: x86_64
+            rust-target: x86_64-pc-windows-msvc
+          - os: macos-15
+            arch: x86_64
+            rust-target: x86_64-apple-darwin
+          - os: macos-15
+            arch: aarch64
+            rust-target: aarch64-apple-darwin
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          targets: ${{ matrix.rust-target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+
+      - name: Cache Rust toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+            ~/.rustup/settings.toml
+          key: ${{ matrix.os }}-${{ matrix.arch }}-rustup-${{ matrix.rust }}-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.arch }}-rustup-${{ matrix.rust }}-
+            ${{ matrix.os }}-rustup-${{ matrix.rust }}-
+            ${{ matrix.os }}-rustup-
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ matrix.os }}-${{ matrix.arch }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.arch }}-cargo-registry-
+            ${{ matrix.os }}-cargo-registry-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ matrix.os }}-${{ matrix.arch }}-cargo-build-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.arch }}-cargo-build-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ matrix.os }}-${{ matrix.arch }}-cargo-build-${{ matrix.rust }}-
+            ${{ matrix.os }}-cargo-build-${{ matrix.rust }}-
+            ${{ matrix.os }}-cargo-build-
+
+      - name: Setup cargo tools cache
+        uses: ./.github/actions/setup-cargo-tools
+        with:
+          tools: "cargo-nextest"
+
+      - name: Run tests with nextest
+        if: matrix.arch == 'x86_64' || (matrix.os == 'macos-15' && matrix.arch == 'aarch64') # Run tests on native architectures
+        run: cargo nextest run --target ${{ matrix.rust-target }} --verbose
+
+      - name: Run tests with all features
+        if: matrix.arch == 'x86_64' || (matrix.os == 'macos-15' && matrix.arch == 'aarch64') # Run tests on native architectures
+        run: cargo nextest run --target ${{ matrix.rust-target }} --all-features --verbose
+
+      - name: Run tests without default features
+        if: matrix.arch == 'x86_64' || (matrix.os == 'macos-15' && matrix.arch == 'aarch64') # Run tests on native architectures
+        run: cargo nextest run --target ${{ matrix.rust-target }} --no-default-features --verbose
+
+      - name: Build tests for cross-compilation targets
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64' # Only build (not run) for Linux ARM64 cross-compilation
+        run: |
+          cargo build --target ${{ matrix.rust-target }} --tests --verbose
+          cargo build --target ${{ matrix.rust-target }} --tests --all-features --verbose
+          cargo build --target ${{ matrix.rust-target }} --tests --no-default-features --verbose
+
+  rustfmt:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo build for clippy
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-clippy-
+            ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-build-stable-
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup cargo tools cache
+        uses: ./.github/actions/setup-cargo-tools
+        with:
+          tools: "cargo-tarpaulin cargo-llvm-cov"
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo build for coverage
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-coverage-
+            ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-build-stable-
+
+      - name: Generate coverage report
+        run: cargo tarpaulin --lib --out lcov --output-dir . --verbose
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: elioetibr/rust-yaml-private
+
+  security_audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup cargo tools cache
+        uses: ./.github/actions/setup-cargo-tools
+        with:
+          tools: "cargo-audit cargo-deny"
+
+      - name: Run security audit
+        run: cargo audit
+
+      - name: Check dependencies with cargo-deny
+        run: cargo deny check
+
+  dependency_check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup cargo tools cache
+        uses: ./.github/actions/setup-cargo-tools
+        with:
+          tools: "cargo-outdated cargo-edit cargo-udeps"
+
+      - name: Check outdated dependencies
+        run: |
+          echo "## Checking for outdated dependencies..."
+          cargo outdated || true
+          echo "Note: Outdated dependencies are informational only and do not fail the build."
+
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo build for benchmarks
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}-${{ hashFiles('benches/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-bench-
+            ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-build-stable-
+
+      - name: Run benchmarks
+        run: cargo bench --no-run
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo build for docs
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-docs-
+            ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-build-stable-
+
+      - name: Build documentation
+        run: cargo doc --all-features --no-deps
+
+      - name: Check for broken links
+        run: cargo doc --all-features --no-deps --open
+
+  build:
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    needs:
+      [
+        docs,
+        benchmark,
+        security_audit,
+        dependency_check,
+        coverage,
+        clippy,
+        rustfmt,
+        test,
+        version,
+      ]
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BUILD_OS: ubuntu-latest
+      BUILD_ARCH: x86_64
+      BUILD_TARGET: x86_64-unknown-linux-gnu
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
+    # Ensure only one build job runs at a time to prevent resource conflicts
+    concurrency:
+      group: build-ubuntu-latest-x86_64-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.BUILD_TARGET }}
+
+      - name: Cache cargo registry and git
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ env.BUILD_OS }}-${{ env.BUILD_ARCH }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ env.BUILD_OS }}-${{ env.BUILD_ARCH }}-cargo-registry-
+            ${{ env.BUILD_OS }}-cargo-registry-
+
+      - name: Cache cargo build for cross-platform
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ env.BUILD_OS }}-${{ env.BUILD_ARCH }}-cargo-cross-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
+          restore-keys: |
+            ${{ env.BUILD_OS }}-${{ env.BUILD_ARCH }}-cargo-cross-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ env.BUILD_OS }}-${{ env.BUILD_ARCH }}-cargo-cross-
+            ${{ env.BUILD_OS }}-cargo-cross-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ env.BUILD_OS }}-cargo-cross-
+            ${{ env.BUILD_OS }}-cargo-build-stable-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ env.BUILD_OS }}-cargo-build-stable-
+
+      - name: Setup cargo tools cache
+        uses: ./.github/actions/setup-cargo-tools
+        with:
+          tools: "cargo-edit"
+          arch: ${{ env.BUILD_ARCH }}
+
+      - name: Set version
+        run: cargo set-version ${{ needs.version.outputs.version }}
+
+      - name: Tag
+        id: tag
+        shell: bash -l {0}
+        env:
+          GH_TOKEN: ${{ steps.github_app_auth.outputs.token }}
+        run: |
+          #!/usr/bin/env bash
+
+          function tagger() {
+            VERSION=$1
+            echo "Releasing Version: ${VERSION}"
+            TAG_EXISTS=$(git ls-remote -q --tags | grep -q "refs/tags/${VERSION}$" && echo true || echo false)
+            if [[ "${TAG_EXISTS}" = true ]];
+            then
+              HAS_RELEASE=$(gh release list --json tagName -q '.[].tagName' | grep -E "^(${VERSION})$" && echo true || echo false)
+              if [[ "${HAS_RELEASE}" == true ]];
+              then
+                gh release delete --yes ${VERSION}
+              fi
+              git push origin --delete ${VERSION}
+              git tag -d ${VERSION}
+            fi
+
+            echo
+            git tag -a ${VERSION} -m "chore: Release Version ${VERSION} [skip ci]"
+            git push -f --tags --follow-tags
+            git push --set-upstream origin ${{ github.ref_name }}
+            echo
+            echo
+          }
+
+          tagger "v${{ needs.version.outputs.version }}"
+          if [[ "${{ github.ref_name  }}" == "${{ github.event.repository.default_branch }}" ]];
+          then
+            tagger "v${{ needs.version.outputs.major }}.${{ needs.version.outputs.minor }}"
+            tagger "v${{ needs.version.outputs.major }}"
+          fi
+
+      - name: Build
+        run: cargo build --target ${{ env.BUILD_TARGET }} --release --verbose
+
+      - name: Run tests
+        run: cargo test --target ${{ env.BUILD_TARGET }} --verbose
+
+      - name: GitHub Actions Release
+        id: release
+        shell: bash -l {0}
+        env:
+          GH_TOKEN: ${{ steps.github_app_auth.outputs.token }}
+        run: |
+          #!/usr/bin/env bash
+
+          if [[ "${{ github.ref_name  }}" == "${{ github.event.repository.default_branch }}" ]];
+          then
+            gh release list | grep Draft | awk '{print $1 " \t"}' | while read -r draft; do echo "Removing Draft Releases: ${draft}"; gh release delete --yes "${draft}"; done
+            gh release create v${{ needs.version.outputs.version }} --generate-notes --verify-tag --latest
+          fi
+
+  publish-crate:
+    name: Publish to crates.io
+    needs: [build, version]
+    # Only publish on main branch, not PRs, and when explicitly enabled
+    if: |
+      github.ref == 'refs/heads/main' && 
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip publish]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Setup cargo tools cache
+        uses: ./.github/actions/setup-cargo-tools
+        with:
+          tools: "cargo-edit"
+
+      - name: Set version
+        run: cargo set-version ${{ needs.version.outputs.version }}
+
+      - name: Check if version exists on crates.io
+        id: check_version
+        run: |
+          CRATE_NAME="rust-yaml"
+          VERSION="${{ needs.version.outputs.version }}"
+          
+          # Check if the crate exists and get its versions
+          if cargo search "${CRATE_NAME}" --limit 1 | grep -q "^${CRATE_NAME}"; then
+            # Get the published version from crates.io
+            PUBLISHED_VERSION=$(cargo search "${CRATE_NAME}" --limit 1 | grep "^${CRATE_NAME}" | sed -n 's/.*"\([^"]*\)".*/\1/p')
+            echo "Published version: ${PUBLISHED_VERSION}"
+            echo "Current version: ${VERSION}"
+            
+            if [ "${PUBLISHED_VERSION}" = "${VERSION}" ]; then
+              echo "Version ${VERSION} already exists on crates.io"
+              echo "skip_publish=true" >> $GITHUB_OUTPUT
+            else
+              echo "Version ${VERSION} does not exist on crates.io"
+              echo "skip_publish=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Crate ${CRATE_NAME} not found on crates.io (first publish)"
+            echo "skip_publish=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify package
+        if: steps.check_version.outputs.skip_publish != 'true'
+        run: |
+          cargo package --verbose
+          cargo package --list
+
+      - name: Publish to crates.io
+        if: steps.check_version.outputs.skip_publish != 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish --token "${CARGO_REGISTRY_TOKEN}" --verbose
+          echo "✅ Published version ${{ needs.version.outputs.version }} to crates.io"
+
+      - name: Wait for crates.io to index
+        if: steps.check_version.outputs.skip_publish != 'true'
+        run: |
+          echo "Waiting for crates.io to index the new version..."
+          sleep 30
+
+  publish-docs:
+    name: Publish Documentation
+    needs: [publish-crate, version]
+    # Documentation publishes after crate is published
+    if: |
+      github.ref == 'refs/heads/main' && 
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip publish]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Setup cargo tools cache
+        uses: ./.github/actions/setup-cargo-tools
+        with:
+          tools: "cargo-edit"
+
+      - name: Set version
+        run: cargo set-version ${{ needs.version.outputs.version }}
+
+      - name: Build documentation
+        run: |
+          # Build documentation with all features for docs.rs
+          cargo doc --all-features --no-deps
+          
+          # Create index.html redirect if needed
+          echo '<meta http-equiv="refresh" content="0; url=rust_yaml/index.html">' > target/doc/index.html
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/doc
+          force_orphan: true
+          cname: docs.rust-yaml.io  # Optional: if you have a custom domain
+
+      - name: Trigger docs.rs build
+        run: |
+          echo "docs.rs will automatically build documentation for the published crate"
+          echo "Documentation will be available at: https://docs.rs/rust-yaml/${{ needs.version.outputs.version }}"
+          echo ""
+          echo "Latest documentation: https://docs.rs/rust-yaml/latest"
+          echo "All versions: https://docs.rs/crate/rust-yaml"

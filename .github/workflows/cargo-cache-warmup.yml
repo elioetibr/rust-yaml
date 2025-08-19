@@ -1,0 +1,153 @@
+name: Cargo Cache Warmup
+
+on:
+  schedule:
+    # Run daily at midnight UTC
+    - cron: "0 0 * * *"
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  CARGO_INCREMENTAL: 0
+
+permissions:
+  contents: read
+  id-token: write
+  pages: write
+  pull-requests: write
+
+jobs:
+  warmup-cache:
+    name: Warm up Cargo cache (${{ matrix.os }} / ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # AMD64/x86_64 platforms
+          - os: ubuntu-latest
+            arch: x86_64
+            rust-target: x86_64-unknown-linux-gnu
+          - os: windows-2025
+            arch: x86_64
+            rust-target: x86_64-pc-windows-msvc
+          - os: macos-15
+            arch: x86_64
+            rust-target: x86_64-apple-darwin
+          # ARM64/aarch64 platforms
+          - os: ubuntu-latest
+            arch: aarch64
+            rust-target: aarch64-unknown-linux-gnu
+          - os: macos-15
+            arch: aarch64
+            rust-target: aarch64-apple-darwin
+    steps:
+      - name: Generate GitHub App Token
+        id: github_app_auth
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: GitHub Actions Bot Setup
+        uses: ./.github/actions/bot-setup
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: ${{ matrix.rust-target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ matrix.os }}-${{ matrix.arch }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.arch }}-cargo-registry-
+            ${{ matrix.os }}-cargo-registry-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ matrix.os }}-${{ matrix.arch }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/*.rs') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.arch }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ matrix.os }}-${{ matrix.arch }}-cargo-build-
+            ${{ matrix.os }}-cargo-build-
+
+      - name: Download dependencies
+        run: cargo fetch
+
+      - name: Build project
+        run: cargo build --target ${{ matrix.rust-target }} --all-features
+
+      - name: Build tests
+        run: cargo test --target ${{ matrix.rust-target }} --no-run --all-features
+
+      - name: Build benchmarks
+        run: cargo bench --target ${{ matrix.rust-target }} --no-run --all-features || true
+
+      - name: Build documentation
+        run: cargo doc --target ${{ matrix.rust-target }} --no-deps --all-features
+
+      - name: Run clippy
+        run: cargo clippy --target ${{ matrix.rust-target }} --all-features --all-targets -- -D warnings || true
+
+      - name: Check formatting
+        run: cargo fmt -- --check || true
+
+      - name: Install cargo-nextest
+        if: matrix.arch == 'x86_64' # Only install on native architectures
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+        continue-on-error: true
+
+      - name: Build with nextest
+        if: matrix.arch == 'x86_64' # Only run on native architectures
+        run: cargo nextest run --target ${{ matrix.rust-target }} --no-run --all-features || true
+        continue-on-error: true
+
+      - name: Summary
+        run: |
+          echo "## Cache Warmup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Platform:** ${{ matrix.os }} / ${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** ${{ matrix.rust-target }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Cargo registry cached" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Dependencies downloaded" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Project built for target ${{ matrix.rust-target }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Tests compiled" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Documentation generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Cache size details:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          du -sh ~/.cargo/registry/ 2>/dev/null || echo "Registry: N/A" >> $GITHUB_STEP_SUMMARY
+          du -sh ~/.cargo/git/ 2>/dev/null || echo "Git: N/A" >> $GITHUB_STEP_SUMMARY
+          du -sh target/ 2>/dev/null || echo "Target: N/A" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

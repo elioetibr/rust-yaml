@@ -1,0 +1,6 @@
+# Clippy configuration for rust-yaml
+# Allow some pedantic warnings that are noisy but not critical
+
+# Allow format_push_string for test data generation where performance isn't critical
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true

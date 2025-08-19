@@ -1,0 +1,201 @@
+name: 🐛 Bug Report
+description: Report a bug in rust-yaml
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out this form as completely as possible.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight Checklist
+      description: Please check the following before submitting
+      options:
+        - label: I have searched existing issues to ensure this bug hasn't already been reported
+          required: true
+        - label: I have read the [Contributing Guide](../../CONTRIBUTING.md)
+          required: true
+        - label: This is a bug report, not a feature request or question
+
+  - type: input
+    id: version
+    attributes:
+      label: rust-yaml Version
+      description: What version of rust-yaml are you using?
+      placeholder: "e.g., 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: rust-version
+    attributes:
+      label: Rust Version
+      description: What version of Rust are you using?
+      placeholder: "e.g., 1.74.0 (output of `rustc --version`)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe what happened and what you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: yaml-input
+    attributes:
+      label: YAML Input
+      description: The YAML content that triggers the bug (if applicable)
+      placeholder: |
+        ```yaml
+        # Paste your YAML here
+        key: value
+        ```
+      render: yaml
+
+  - type: textarea
+    id: code-sample
+    attributes:
+      label: Code Sample
+      description: Minimal code sample that reproduces the bug
+      placeholder: |
+        ```rust
+        use rust_yaml::Yaml;
+
+        let yaml = Yaml::new();
+        let result = yaml.load_str("your yaml here");
+        // What happens here?
+        ```
+      render: rust
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe the expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe the actual behavior, including any error messages
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error Output
+      description: Full error message, stack trace, or panic output
+      placeholder: |
+        ```
+        Paste error output here
+        ```
+      render: text
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the bug
+      placeholder: |
+        1. Create a new Rust project
+        2. Add rust-yaml dependency
+        3. Run the code sample above
+        4. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Bug Severity
+      description: How severe is this bug?
+      options:
+        - Critical (Security vulnerability, data corruption)
+        - High (Blocks major functionality)
+        - Medium (Affects functionality but workaround exists)
+        - Low (Minor issue, cosmetic)
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional context, screenshots, or relevant information
+      placeholder: Add any other context about the problem here
+
+  - type: checkboxes
+    id: feature-area
+    attributes:
+      label: Affected Features
+      description: Which features are affected by this bug? (Select all that apply)
+      options:
+        - label: Basic parsing (scalars, sequences, mappings)
+        - label: Advanced parsing (anchors, aliases, merge keys)
+        - label: Multi-line strings (literal, folded)
+        - label: Type tags (!!str, !!int, etc.)
+        - label: Complex keys
+        - label: Serialization/dumping
+        - label: Round-trip preservation
+        - label: Error handling
+        - label: Performance
+        - label: Multi-document support
+        - label: Style preservation
+        - label: Configuration/loaders
+
+  - type: dropdown
+    id: reproducible
+    attributes:
+      label: Reproducibility
+      description: How often can you reproduce this bug?
+      options:
+        - Always
+        - Sometimes
+        - Rarely
+        - Unable to reproduce
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Is there a workaround for this bug?
+      placeholder: Describe any workarounds you've found
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+
+        Thank you for reporting this bug! We'll review it as soon as possible.
+
+        **Security Note**: If this is a security vulnerability, please report it privately via our [Security Policy](../../SECURITY.md) instead of creating a public issue.

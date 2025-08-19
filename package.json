@@ -1,0 +1,27 @@
+{
+  "name": "rust-yaml",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A pure Rust YAML 1.2 implementation",
+  "scripts": {
+    "commitlint": "commitlint --from HEAD~1 --to HEAD --verbose",
+    "prepare-commit-msg": "echo 'Please follow conventional commit format: <type>(<scope>): <description>'",
+    "lint-commit": "commitlint --edit"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^18.0.0",
+    "@commitlint/config-conventional": "^18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elioetibr/rust-yaml.git"
+  },
+  "keywords": [
+    "yaml",
+    "rust",
+    "parser",
+    "serialization"
+  ],
+  "author": "Elio Severo Junior",
+  "license": "MIT OR Apache-2.0"
+}

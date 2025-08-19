@@ -1,0 +1,226 @@
+name: ✨ Feature Request
+description: Suggest a new feature for rust-yaml
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest in improving rust-yaml! Please describe your feature request in detail.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight Checklist
+      description: Please check the following before submitting
+      options:
+        - label: I have searched existing issues to ensure this feature hasn't already been requested
+          required: true
+        - label: I have read the [Contributing Guide](../../CONTRIBUTING.md)
+          required: true
+        - label: I have checked the [project roadmap](../../README.md#feature-status) to see if this is already planned
+          required: true
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Category
+      description: What type of feature is this?
+      options:
+        - New YAML parsing capability
+        - Performance improvement
+        - API enhancement
+        - Developer tooling
+        - Documentation improvement
+        - Testing enhancement
+        - Security feature
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: A brief summary of the feature you'd like to see
+      placeholder: One-line description of the feature
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation & Use Case
+      description: Why is this feature needed? What problem does it solve?
+      placeholder: |
+        - What problem are you trying to solve?
+        - How would this feature help you or other users?
+        - Are there any specific use cases this would enable?
+    validations:
+      required: true
+
+  - type: textarea
+    id: detailed-description
+    attributes:
+      label: Detailed Description
+      description: Provide a detailed description of the feature
+      placeholder: |
+        Describe the feature in detail:
+        - How should it work?
+        - What should the API look like?
+        - Any specific requirements or constraints?
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-design
+    attributes:
+      label: Proposed API
+      description: What should the API look like? (if applicable)
+      placeholder: |
+        ```rust
+        // Example of how you'd like to use this feature
+        use rust_yaml::Yaml;
+
+        let yaml = Yaml::new();
+        // Your proposed API usage here
+        ```
+      render: rust
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples
+      description: Provide examples of how this feature would be used
+      placeholder: |
+        Show specific examples of:
+        - Input YAML (if applicable)
+        - Expected code usage
+        - Expected output
+      render: yaml
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Critical (Blocks major use case)
+        - High (Significantly improves experience)
+        - Medium (Nice to have)
+        - Low (Minor improvement)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: related-features
+    attributes:
+      label: Related Features
+      description: Which existing features would this interact with?
+      options:
+        - label: Basic parsing (scalars, sequences, mappings)
+        - label: Advanced parsing (anchors, aliases, merge keys)
+        - label: Multi-line strings (literal, folded)
+        - label: Type tags (!!str, !!int, etc.)
+        - label: Complex keys
+        - label: Serialization/dumping
+        - label: Round-trip preservation
+        - label: Error handling
+        - label: Performance
+        - label: Multi-document support
+        - label: Style preservation
+        - label: Configuration/loaders
+        - label: Security features
+        - label: This is a completely new feature area
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternatives have you considered?
+      placeholder: |
+        - Other ways to solve the same problem
+        - Workarounds you're currently using
+        - Similar features in other YAML libraries
+
+  - type: textarea
+    id: breaking-changes
+    attributes:
+      label: Breaking Changes
+      description: Would this feature require breaking changes?
+      placeholder: |
+        - Would this change existing APIs?
+        - Would this affect backward compatibility?
+        - How could breaking changes be minimized?
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Implementation Complexity
+      description: How complex do you think this feature would be to implement?
+      options:
+        - Low (Small change, minimal impact)
+        - Medium (Moderate change, some refactoring needed)
+        - High (Major change, significant refactoring)
+        - Unknown (I'm not sure)
+
+  - type: checkboxes
+    id: yaml-spec
+    attributes:
+      label: YAML Specification
+      description: How does this relate to the YAML specification?
+      options:
+        - label: This is required by YAML 1.2 specification
+        - label: This is allowed by YAML 1.2 specification
+        - label: This is an extension beyond YAML specification
+        - label: This is implementation-specific (not covered by spec)
+        - label: I'm not sure
+
+  - type: textarea
+    id: research
+    attributes:
+      label: Research & References
+      description: Any relevant research, links, or references
+      placeholder: |
+        - Links to YAML specification sections
+        - Examples from other libraries
+        - Academic papers or articles
+        - Related GitHub issues or discussions
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you willing to help implement this feature?
+      options:
+        - label: I'm willing to implement this feature myself
+        - label: I can help with testing and feedback
+        - label: I can help with documentation
+        - label: I can provide guidance and domain expertise
+        - label: I would prefer someone else implement this
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional context or information
+      placeholder: |
+        - Screenshots or mockups
+        - Performance considerations
+        - Compatibility requirements
+        - Timeline considerations
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+
+        Thank you for suggesting this feature! We appreciate your input and will review this as soon as possible.
+
+        **Note**: Feature requests are evaluated based on:
+        - Alignment with project goals
+        - Community benefit vs. maintenance burden
+        - YAML specification compliance
+        - Implementation complexity
+        - Available development resources

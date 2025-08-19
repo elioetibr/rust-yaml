@@ -1,0 +1,179 @@
+name: ❓ Question / Help
+description: Ask a question or get help using rust-yaml
+title: "[Question]: "
+labels: ["question", "help-wanted"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest in rust-yaml! We're here to help.
+
+        **Note**: For complex discussions or general questions, consider using [GitHub Discussions](../../discussions) instead.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight Checklist
+      description: Please check the following before asking your question
+      options:
+        - label: I have read the [documentation](https://docs.rs/rust-yaml)
+          required: true
+        - label: I have searched existing issues and discussions
+          required: true
+        - label: I have looked at the [examples](../../examples/) in the repository
+          required: true
+
+  - type: dropdown
+    id: question-type
+    attributes:
+      label: Question Type
+      description: What type of question is this?
+      options:
+        - How do I use a specific feature?
+        - How do I solve a specific problem?
+        - Why is rust-yaml behaving this way?
+        - Best practices or recommendations
+        - Performance question
+        - Architecture or design question
+        - Compatibility question
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: Ask your question here in detail
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context & Background
+      description: Provide context about what you're trying to achieve
+      placeholder: |
+        - What is your overall goal?
+        - What have you tried so far?
+        - What specific challenge are you facing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: code-sample
+    attributes:
+      label: Code Sample
+      description: Show us the code you're working with (if applicable)
+      placeholder: |
+        ```rust
+        use rust_yaml::Yaml;
+
+        // Your code here
+        ```
+      render: rust
+
+  - type: textarea
+    id: yaml-sample
+    attributes:
+      label: YAML Sample
+      description: The YAML data you're working with (if applicable)
+      placeholder: |
+        ```yaml
+        # Your YAML here
+        key: value
+        ```
+      render: yaml
+
+  - type: input
+    id: version
+    attributes:
+      label: rust-yaml Version
+      description: What version of rust-yaml are you using?
+      placeholder: "e.g., 0.1.0"
+
+  - type: input
+    id: rust-version
+    attributes:
+      label: Rust Version
+      description: What version of Rust are you using?
+      placeholder: "e.g., 1.74.0"
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen? (if applicable)
+      placeholder: Describe what you expected
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? (if applicable)
+      placeholder: Describe what actually happened
+
+  - type: textarea
+    id: research
+    attributes:
+      label: Research Done
+      description: What research have you already done?
+      placeholder: |
+        - Documentation sections you've read
+        - Examples you've tried
+        - Similar questions you've found
+        - Other resources you've consulted
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency
+      description: How urgent is this question?
+      options:
+        - Not urgent (general curiosity)
+        - Somewhat urgent (affects current project)
+        - Urgent (blocking current work)
+        - Critical (production issue)
+
+  - type: checkboxes
+    id: feature-area
+    attributes:
+      label: Related Features
+      description: Which features does your question relate to?
+      options:
+        - label: Basic parsing (scalars, sequences, mappings)
+        - label: Advanced parsing (anchors, aliases, merge keys)
+        - label: Multi-line strings (literal, folded)
+        - label: Type tags (!!str, !!int, etc.)
+        - label: Complex keys
+        - label: Serialization/dumping
+        - label: Round-trip preservation
+        - label: Error handling
+        - label: Performance
+        - label: Multi-document support
+        - label: Style preservation
+        - label: Configuration/loaders
+        - label: Security features
+        - label: General usage
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful
+      placeholder: |
+        - Use case details
+        - Constraints you're working under
+        - Other libraries you've used
+        - Related tools or frameworks
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+
+        Thank you for your question! We'll do our best to help you out.
+
+        **Tip**: The more specific and detailed your question, the better we can help you!

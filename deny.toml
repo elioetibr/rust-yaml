@@ -1,0 +1,65 @@
+# Enterprise security policy configuration for rust-yaml
+# This file defines security policies for dependencies, licenses, and advisories
+
+# ==============================================================================
+# License Management - Enterprise Policy
+# ==============================================================================
+
+[licenses]
+# Only allow well-established open source licenses
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "Unicode-3.0",  # Required for unicode-ident
+]
+
+# How to handle license detection confidence
+confidence-threshold = 0.8
+
+# ==============================================================================
+# Security Advisories - Vulnerability Management
+# ==============================================================================
+
+[advisories]
+# Always check the RustSec advisory database
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/RustSec/advisory-db"]
+
+# Ignore specific advisories (use with caution in enterprise)
+ignore = [
+    # Example: Temporary ignore during migration
+    # "RUSTSEC-2023-0001",
+]
+
+# ==============================================================================
+# Banned Dependencies - Supply Chain Security
+# ==============================================================================
+
+[bans]
+# Warn about multiple versions instead of denying for development flexibility
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+
+# We don't ban any specific crates
+deny = []
+
+# Skip duplicate version checks for commonly duplicated crates
+skip = []
+
+# ==============================================================================
+# Source Control - Repository Security
+# ==============================================================================
+
+[sources]
+# Only allow crates from trusted sources
+unknown-registry = "warn"
+unknown-git = "warn"
+
+# Allowed git sources (enterprise repositories)
+allow-git = []
+
+# Allowed crate registries
+allow-registry = [
+    "https://github.com/rust-lang/crates.io-index",  # Official crates.io
+]

@@ -1,0 +1,56 @@
+name: 'Setup Rust Cache'
+description: 'Setup optimized caching for Rust projects'
+inputs:
+  cache-key-suffix:
+    description: 'Additional suffix for cache key specificity'
+    required: false
+    default: ''
+  toolchain:
+    description: 'Rust toolchain version'
+    required: false
+    default: 'stable'
+  cache-target:
+    description: 'Whether to cache target directory'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Cache Rust toolchain
+      if: inputs.toolchain != 'stable'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.rustup/toolchains
+          ~/.rustup/update-hashes
+          ~/.rustup/settings.toml
+        key: ${{ runner.os }}-rustup-${{ inputs.toolchain }}-${{ hashFiles('rust-toolchain.toml', 'rust-toolchain') }}
+        restore-keys: |
+          ${{ runner.os }}-rustup-${{ inputs.toolchain }}-
+          ${{ runner.os }}-rustup-
+
+    - name: Cache cargo registry and git
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo build
+      if: inputs.cache-target == 'true'
+      uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-${{ inputs.cache-key-suffix }}-${{ inputs.toolchain }}-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ inputs.cache-key-suffix }}-${{ inputs.toolchain }}-${{ hashFiles('**/Cargo.lock') }}-
+          ${{ runner.os }}-cargo-${{ inputs.cache-key-suffix }}-${{ inputs.toolchain }}-
+          ${{ runner.os }}-cargo-${{ inputs.cache-key-suffix }}-
+          ${{ runner.os }}-cargo-build-${{ inputs.toolchain }}-${{ hashFiles('**/Cargo.lock') }}-
+          ${{ runner.os }}-cargo-build-${{ inputs.toolchain }}-
+          ${{ runner.os }}-cargo-build-

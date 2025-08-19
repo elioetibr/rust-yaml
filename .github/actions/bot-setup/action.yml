@@ -1,0 +1,34 @@
+name: bot-setup
+author: Elio Severo Junior <elioseverojunior@gmail.com>
+description: bot-setup
+runs:
+  using: 'composite'
+  steps:
+    - name: GitHub Actions Bot Configuration
+      id: bot_config
+      env:
+        GITHUB_BOT_EMAIL: 'github-actions[bot]@users.noreply.github.com'
+        GITHUB_BOT_USERNAME: "github-actions[bot]"
+      shell: bash -l {0}
+      run: |
+        #!/usr/bin/env bash
+
+        set -euo pipefail
+
+        echo "GITHUB_BOT_EMAIL=${{ env.GITHUB_BOT_EMAIL }}" >> $GITHUB_ENV
+        echo "GITHUB_BOT_USERNAME=${{ env.GITHUB_BOT_USERNAME }}" >> $GITHUB_ENV
+
+        git config --global author.email "${{ env.GITHUB_BOT_EMAIL }}"
+        git config --global author.name "${{ env.GITHUB_BOT_USERNAME }}"
+        git config --global committer.email "${{ env.GITHUB_BOT_EMAIL }}"
+        git config --global committer.name "${{ env.GITHUB_BOT_USERNAME }}"
+        git config --global init.defaultBranch ${{ github.event.repository.default_branch }}
+        git config --global pull.ff only
+        git config --global pull.rebase true
+        git config --global push.autosetupremote true
+        git config --global push.followTags true
+        git config --global user.email "${{ env.GITHUB_BOT_EMAIL }}"
+        git config --global user.name "${{ env.GITHUB_BOT_USERNAME }}"
+
+        echo "bot_email=${{ env.GITHUB_BOT_EMAIL }}" >> $GITHUB_OUTPUT
+        echo "bot_user=${{ env.GITHUB_BOT_USERNAME }}" >> $GITHUB_OUTPUT

@@ -1,0 +1,49 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+
+# Type can be:
+#   feat     (new feature)
+#   fix      (bug fix)
+#   docs     (changes to documentation)
+#   style    (formatting, missing semi colons, etc; no code change)
+#   refactor (refactoring production code)
+#   test     (adding tests, refactoring test; no production code change)
+#   chore    (updating build tasks, package manager configs, etc; no production code change)
+#   perf     (performance improvements)
+#   ci       (changes to CI configuration files and scripts)
+#   build    (changes that affect the build system or external dependencies)
+#   revert   (reverts a previous commit)
+#
+# Scope is optional and can be:
+#   parser, emitter, scanner, composer, constructor, lib, cli, docs, tests, etc.
+#
+# Subject line:
+#   - use imperative, present tense: "change" not "changed" nor "changes"
+#   - don't capitalize first letter
+#   - no dot (.) at the end
+#   - 50 characters or less
+#
+# Body:
+#   - use imperative, present tense
+#   - include motivation for the change and contrasts with previous behavior
+#   - wrap at 72 characters
+#
+# Footer:
+#   - reference GitHub issues: "Closes #123", "Fixes #456"
+#   - breaking changes: "BREAKING CHANGE: description"
+#   - semver control: "+semver: major|minor|patch|none"
+#   - CI control: "[skip ci]" or "[ci skip]" to skip CI builds
+#
+# Examples:
+#   feat(parser): add support for complex mapping keys
+#   fix(emitter): resolve string quoting for version numbers
+#   docs: update installation instructions
+#   test(parser): add edge case tests for deeply nested structures
+#   chore: bump version to 1.1.0 [skip ci]
+#   feat: implement comment preservation
+#
+#   BREAKING CHANGE: API interface redesigned
+#   +semver: major

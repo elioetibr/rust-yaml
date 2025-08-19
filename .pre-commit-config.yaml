@@ -1,0 +1,285 @@
+# Enterprise-grade pre-commit configuration for Rust projects
+# This configuration ensures code quality, security, and consistency
+# across all commits and is designed for production environments.
+
+repos:
+  # ==============================================================================
+  # General Code Quality and Standards
+  # ==============================================================================
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # File and content checks
+      - id: check-added-large-files
+        args: ['--maxkb=1000']  # Prevent files larger than 1MB
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+      - id: check-json
+
+      # Security and sensitive data
+      - id: detect-private-key
+      # Note: AWS credentials detection disabled for Rust projects
+      # Enable if project uses AWS services:
+      # - id: detect-aws-credentials
+
+      # Text formatting and consistency
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: ['--markdown-linebreak-ext=md']
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+      # Git best practices
+      - id: forbid-new-submodules
+      # Note: Uncomment to prevent direct commits to protected branches
+      # - id: no-commit-to-branch
+      #   args: ['--branch=main', '--branch=master', '--pattern=release/.*']
+
+  # ==============================================================================
+  # Rust-Specific Code Quality
+  # ==============================================================================
+
+  - repo: local
+    hooks:
+      # Rust formatting (rustfmt)
+      - id: rust-fmt
+        name: Rust Format (rustfmt)
+        entry: cargo fmt --all --
+        language: system
+        files: \.rs$
+        pass_filenames: true
+        description: "Format Rust code using rustfmt"
+
+      # Rust linting (clippy) - strict mode for enterprise
+      - id: rust-clippy
+        name: Rust Clippy (strict)
+        entry: cargo clippy --lib --bins --all-features -- -D warnings -D clippy::all -D clippy::pedantic -W clippy::nursery
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        description: "Lint Rust code with strict clippy rules (lib and bins only)"
+
+      # Rust linting for tests and benchmarks (less strict)
+      - id: rust-clippy-tests
+        name: Rust Clippy (tests)
+        entry: cargo clippy --tests --benches --all-features -- -D warnings -D clippy::correctness -D clippy::suspicious -D clippy::perf -W clippy::style
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        description: "Lint Rust tests and benchmarks with relaxed rules"
+
+      # Rust compilation check
+      - id: rust-check
+        name: Rust Check
+        entry: cargo check --all-targets --all-features
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        description: "Check Rust code compilation"
+
+      # Rust tests (lib only for speed, optional for pre-commit)
+      - id: rust-test
+        name: Rust Tests (optional)
+        entry: timeout 30s cargo test --lib --all-features || true
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        description: "Run Rust library tests with 30s timeout (non-blocking)"
+        stages: [manual]  # Only run when explicitly requested
+
+      # Rust documentation check
+      - id: rust-doc
+        name: Rust Documentation
+        entry: cargo doc --all-features --no-deps --document-private-items
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        description: "Check Rust documentation builds"
+
+  # ==============================================================================
+  # Security and Vulnerability Scanning
+  # ==============================================================================
+
+  - repo: local
+    hooks:
+      # Rust security audit (only run on Cargo file changes)
+      - id: rust-audit
+        name: Rust Security Audit
+        entry: bash -c 'if ! command -v cargo-audit >/dev/null; then echo "Installing cargo-audit..." && cargo install cargo-audit; fi && cargo audit'
+        language: system
+        files: Cargo\.(toml|lock)$
+        pass_filenames: false
+        description: "Run security audit for Rust dependencies"
+
+      # Check for RUSTSEC vulnerabilities (only when deny.toml or Cargo files change)
+      - id: rust-deny
+        name: Rust Deny Check (advisories only)
+        entry: bash -c 'if [ -f deny.toml ]; then if ! command -v cargo-deny >/dev/null; then echo "Installing cargo-deny..." && cargo install cargo-deny; fi && timeout 30s cargo deny check advisories || echo "Advisories check completed with warnings"; else echo "deny.toml not found, skipping"; fi'
+        language: system
+        files: (Cargo\.(toml|lock)|deny\.toml)$
+        pass_filenames: false
+        description: "Check dependencies for security advisories (30s timeout)"
+
+  # ==============================================================================
+  # Dependency and License Management
+  # ==============================================================================
+
+  - repo: local
+    hooks:
+      # Check Cargo.lock is up to date
+      - id: cargo-lock-check
+        name: Cargo.lock Check
+        entry: bash -c 'output=$(cargo update --dry-run 2>&1); if echo "$output" | grep -q "Locking [1-9]"; then echo "Cargo.lock is outdated. Run cargo update."; exit 1; fi; exit 0'
+        language: system
+        files: Cargo\.(toml|lock)$
+        pass_filenames: false
+        description: "Ensure Cargo.lock is up to date"
+
+      # Unused dependencies check
+      - id: rust-unused-deps
+        name: Unused Dependencies
+        entry: bash -c 'if ! command -v cargo-machete >/dev/null; then cargo install cargo-machete; fi && cargo machete'
+        language: system
+        files: Cargo\.toml$
+        pass_filenames: false
+        description: "Check for unused dependencies"
+
+  # ==============================================================================
+  # Code Coverage and Quality Metrics
+  # ==============================================================================
+
+  - repo: local
+    hooks:
+      # Code coverage check (optional, can be resource intensive)
+      - id: rust-coverage
+        name: Rust Coverage Check
+        entry: bash -c 'if ! command -v cargo-llvm-cov >/dev/null; then cargo install cargo-llvm-cov; fi && cargo llvm-cov --all-features --workspace --fail-under-lines 80'
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        description: "Ensure minimum 80% code coverage"
+        stages: [manual]  # Only run when explicitly requested
+
+  # ==============================================================================
+  # Documentation and Markdown
+  # ==============================================================================
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        name: Markdown Lint
+        args: ['--fix', '--config', '.markdownlint.json']
+        description: "Lint and fix Markdown files"
+
+  - repo: local
+    hooks:
+      # Custom markdown check using our integrated checker
+      - id: markdown-format-check
+        name: Markdown Format Check
+        entry: make check-markdown
+        language: system
+        files: \.md$
+        pass_filenames: false
+        description: "Check markdown formatting for blank lines around headings and lists"
+
+  # ==============================================================================
+  # Commit Message Standards
+  # ==============================================================================
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        name: Conventional Commit
+        description: "Ensure commit messages follow conventional commit format"
+        stages: [commit-msg]
+        args: [
+          "build", "chore", "ci", "docs", "feat", "fix", "perf",
+          "refactor", "revert", "style", "test", "init", "update",
+          "deps", "release", "security", "config"
+        ]
+
+  # ==============================================================================
+  # Configuration and Infrastructure Files
+  # ==============================================================================
+
+  - repo: local
+    hooks:
+      # TOML formatting (optional)
+      - id: toml-sort
+        name: TOML Sort
+        entry: bash -c 'if ! command -v toml-sort >/dev/null; then echo "toml-sort not found, skipping"; exit 0; fi && toml-sort --in-place'
+        language: system
+        files: \.toml$
+        description: "Sort and format TOML files (optional)"
+        stages: [manual]
+
+      # GitHub Actions validation
+      - id: github-actions-check
+        name: GitHub Actions Check
+        entry: bash -c 'find .github/workflows -name "*.yml" -o -name "*.yaml" | xargs -I {} bash -c "echo Checking {} && cat {} | yq . >/dev/null"'
+        language: system
+        files: ^\.github/workflows/.*\.(yml|yaml)$
+        pass_filenames: false
+        description: "Validate GitHub Actions workflow syntax"
+
+  # ==============================================================================
+  # Enterprise Security Scanning
+  # ==============================================================================
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: Detect Secrets
+        args: ['--baseline', '.secrets.baseline']
+        description: "Detect secrets and credentials in code"
+
+  - repo: local
+    hooks:
+      # License header check (optional)
+      - id: license-header-check
+        name: License Header Check
+        entry: bash -c 'if [ -f scripts/check-license-headers.sh ]; then ./scripts/check-license-headers.sh; fi'
+        language: system
+        files: \.rs$
+        pass_filenames: false
+        description: "Ensure all Rust files have proper license headers"
+        # Only run if script exists
+        stages: [manual]
+
+# ==============================================================================
+# Performance and Resource Management
+# ==============================================================================
+
+# Fail fast configuration
+fail_fast: true
+
+# Minimum pre-commit version
+minimum_pre_commit_version: '3.0.0'
+
+# Default language version (if needed)
+default_language_version:
+  python: python3.9
+
+# Default stages for all hooks (customize per hook as needed)
+default_stages: [pre-commit]
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [rust-test, rust-coverage, rust-audit]  # Skip resource-intensive hooks in CI

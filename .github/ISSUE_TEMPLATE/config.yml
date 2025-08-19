@@ -1,0 +1,21 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Security Vulnerability
+    url: mailto:elio+security@elio.eti.br
+    about: Report security vulnerabilities privately (see SECURITY.md)
+
+  - name: 💬 GitHub Discussions
+    url: https://github.com/elioetibr/rust-yaml-private/discussions
+    about: Ask questions and discuss ideas with the community
+
+  - name: 📖 Documentation
+    url: https://docs.rs/rust-yaml
+    about: Read the full API documentation
+
+  - name: 📚 Examples
+    url: https://github.com/elioetibr/rust-yaml-private/tree/main/examples
+    about: Browse code examples and usage patterns
+
+  - name: 🎯 YAML Specification
+    url: https://yaml.org/spec/1.2.2/
+    about: Reference for YAML 1.2 specification questions

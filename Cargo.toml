@@ -1,0 +1,112 @@
+[package]
+name = "rust-yaml"
+version = "0.0.1"
+authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
+edition = "2024"
+description = "A fast, safe YAML 1.2 library for Rust"
+documentation = "https://docs.rs/rust-yaml"
+readme = "README.md"
+repository = "https://github.com/elioetibr/rust-yaml-private"
+license = "MIT OR Apache-2.0"
+keywords = ["configuration", "markup", "parser", "serialization", "yaml"]
+categories = ["config", "encoding", "parser-implementations"]
+rust-version = "1.85.0"
+
+[package.metadata.docs.rs]
+# Build docs with all features on docs.rs
+all-features = true
+# Specify arguments for rustdoc to enhance documentation quality
+rustdoc-args = [
+  "--generate-link-to-definition",
+  "--cfg",
+  "docsrs",
+  "--document-private-items",
+  "--display-warnings",
+]
+# Specify targets for docs.rs to build
+targets = ["x86_64-unknown-linux-gnu"]
+
+[lib]
+crate-type = ["lib"]
+doc-scrape-examples = false
+name = "rust_yaml"
+path = "src/lib.rs"
+required-features = []
+
+[[bench]]
+harness = false
+name = "parsing"
+
+[[bench]]
+harness = false
+name = "dumping"
+
+[[bench]]
+harness = false
+name = "advanced_features"
+
+[[bench]]
+harness = false
+name = "profiling"
+
+[[bench]]
+harness = false
+name = "performance_regression"
+
+[[bench]]
+harness = false
+name = "performance"
+
+[[bench]]
+harness = false
+name = "zero_copy"
+
+[[bench]]
+harness = false
+name = "streaming"
+
+[dependencies]
+# Base64 encoding/decoding for binary data tags
+base64 = "0.22"
+futures = { version = "0.3", optional = true }
+# Core dependencies for YAML processing
+indexmap = { version = "2.0", features = ["serde"] }
+# Memory mapping for large files
+memmap2 = { version = "0.9", optional = true }
+# Optional serde support
+serde = { version = "1.0", features = ["derive"], optional = true }
+# Async support
+tokio = { version = "1.40", features = ["fs", "io-util", "rt"], optional = true }
+
+[dev-dependencies]
+# Testing and benchmarking
+criterion = { version = "0.7", features = ["html_reports"] }
+pretty_assertions = "1.4"
+proptest = "1.2"
+tempfile = "3.8"
+# For async tests
+tokio = { version = "1.40", features = ["macros", "rt", "test-util"] }
+
+[features]
+# Async/await support
+async = ["futures", "tokio"]
+default = ["mmap", "preserve-order"]
+# All features
+full = ["async", "large-documents", "mmap", "serde_support"]
+# Support for large documents
+large-documents = []
+# Memory-mapped file support
+mmap = ["memmap2"]
+# Preserve document order
+preserve-order = []
+serde = ["dep:serde", "indexmap/serde"]
+# Serde integration
+serde_support = ["serde"]
+
+[profile.release]
+lto = true
+panic = "abort"
+codegen-units = 1
+
+[profile.bench]
+debug = true
