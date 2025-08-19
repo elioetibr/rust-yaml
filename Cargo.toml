@@ -1,6 +1,6 @@
 [package]
 name = "rust-yaml"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
 edition = "2024"
 rust-version = "1.89.0"
@@ -12,68 +12,60 @@ license = "MIT OR Apache-2.0"
 keywords = ["configuration", "markup", "parser", "serialization", "yaml"]
 categories = ["config", "encoding", "parser-implementations"]
 exclude = [
-  # Version control
-  ".git/",
-  ".gitattributes",
-  ".gitignore",
-  ".gitmessage",
-  ".githooks/",
-  
-  # CI/CD and GitHub
-  ".github/",
-  ".gitlab-ci.yml",
-  ".travis.yml",
-  
+  "*.bak",
+  "*.log",
+  "*.profdata",
+  "*.profraw",
+  "*.swo",
+  # Editor and OS files
+  "*.swp",
+  "*.tmp",
+  "*~",
+  ".DS_Store",
   # Development tools and configs
   ".cargo/",
   ".claude/",
   ".clippy.toml",
+  # Version control
+  ".git/",
+  ".gitattributes",
+  ".githooks/",
+  # CI/CD and GitHub
+  ".github/",
+  ".gitignore",
+  ".gitlab-ci.yml",
+  ".gitmessage",
   ".idea/",
-  ".vscode/",
-  ".pre-commit-config.yaml",
-  ".secrets.baseline",
   ".markdownlint.json",
   ".nvmrc",
-  "deny.toml",
-  "GitVersion.yml",
-  "Makefile",
-  
-  # Node.js/JavaScript files
-  "node_modules/",
-  "package.json",
-  "package-lock.json",
-  "commitlint.config.js",
-  
-  # Documentation and community files
-  "docs/",
+  ".pre-commit-config.yaml",
+  ".secrets.baseline",
+  ".travis.yml",
+  ".vscode/",
+  "CLAUDE.md",
   "CODE_OF_CONDUCT.md",
   "CONTRIBUTING.md",
-  "SECURITY.md",
-  "CLAUDE.md",
-  
-  # Build artifacts and caches
-  "target/",
   "Cargo.lock",  # For libraries
-  "lcov.info",
-  "*.profraw",
-  "*.profdata",
-  
+  "GitVersion.yml",
+  "Makefile",
+  "SECURITY.md",
+  "Thumbs.db",
   # Benchmarks (optional, include if you want them in the package)
   "benches/",
-  
+  "commitlint.config.js",
+  "deny.toml",
+  # Documentation and community files
+  "docs/",
+  "lcov.info",
+  # Node.js/JavaScript files
+  "node_modules/",
+  "package-lock.json",
+  "package.json",
+  # Build artifacts and caches
+  "target/",
   # Test files (tests/ should be included for cargo test)
   "test-data/",
-  
-  # Editor and OS files
-  "*.swp",
-  "*.swo",
-  "*~",
-  ".DS_Store",
-  "Thumbs.db",
-  "*.log",
-  "*.bak",
-  "*.tmp",
-  
+
   # Examples (optional, you might want to include these)
   # "examples/",
 ]
@@ -94,7 +86,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [lib]
 crate-type = ["lib"]
-doc-scrape-examples = false
 name = "rust_yaml"
 path = "src/lib.rs"
 required-features = []
