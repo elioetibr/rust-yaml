@@ -1,6 +1,6 @@
 [package]
 name = "rust-yaml"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
 edition = "2021"
 rust-version = "1.85.0"
@@ -91,15 +91,12 @@ required-features = []
 
 [[example]]
 name = "library_comparison"
-doc-scrape-examples = true
 
 [[example]]
 name = "merge_key_demo"
-doc-scrape-examples = true
 
 [[example]]
 name = "streaming_parser_demo"
-doc-scrape-examples = true
 
 [[bench]]
 harness = false

@@ -2,7 +2,7 @@ name: Publish to crates.io
 
 # This workflow handles publishing to crates.io and creating release artifacts.
 # It assumes that tests have already passed (via CI workflow or manual verification).
-# 
+#
 # Triggered by:
 # - Creating a GitHub release (automatic)
 # - Manual workflow dispatch (for controlled releases)
@@ -16,11 +16,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 0.1.0)'
+        description: "Version to publish (e.g., 0.1.0)"
         required: true
         type: string
       dry_run:
-        description: 'Perform a dry run without publishing'
+        description: "Perform a dry run without publishing"
         required: false
         type: boolean
         default: false
@@ -29,7 +29,7 @@ env:
   CARGO_TERM_COLOR: always
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
   pages: write
   pull-requests: write
@@ -105,7 +105,7 @@ jobs:
           echo "📦 Verifying package..."
           cargo package --verbose
           cargo package --list
-          
+
           # Check package size
           PACKAGE_SIZE=$(cargo package --list | wc -l)
           echo "Package contains ${PACKAGE_SIZE} files"
@@ -116,7 +116,7 @@ jobs:
         run: |
           CRATE_NAME="rust-yaml"
           VERSION="${{ needs.validate.outputs.version }}"
-          
+
           # Check if version already exists
           if cargo search "${CRATE_NAME}" --limit 1 | grep -q "^${CRATE_NAME}.*\"${VERSION}\""; then
             echo "❌ Version ${VERSION} already exists on crates.io"
@@ -138,10 +138,10 @@ jobs:
         run: |
           echo "Waiting for crates.io to index the new version..."
           sleep 60
-          
+
           CRATE_NAME="rust-yaml"
           VERSION="${{ needs.validate.outputs.version }}"
-          
+
           if cargo search "${CRATE_NAME}" --limit 1 | grep -q "^${CRATE_NAME}.*\"${VERSION}\""; then
             echo "✅ Version ${VERSION} is now available on crates.io"
             echo "📚 View at: https://crates.io/crates/${CRATE_NAME}/${VERSION}"
@@ -191,10 +191,10 @@ jobs:
         run: |
           echo "📚 Building documentation..."
           cargo doc --all-features --no-deps
-          
+
           # Create root index.html redirect
           echo '<meta http-equiv="refresh" content="0; url=rust_yaml/index.html">' > target/doc/index.html
-          
+
           # Add version info
           echo "Documentation built for version ${{ needs.validate.outputs.version }}" > target/doc/VERSION
 
@@ -216,92 +216,6 @@ jobs:
           echo "  - Latest: https://docs.rs/rust-yaml/latest"
           echo "  - GitHub Pages: https://${{ github.repository_owner }}.github.io/rust-yaml/"
 
-  create-release-artifacts:
-    name: Create Release Artifacts
-    needs: [validate, publish-crate, publish-docs]
-    if: success() && github.event.inputs.dry_run != 'true' && github.event_name == 'release'
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: rust-yaml-linux-amd64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact_name: rust-yaml-linux-arm64
-          - os: windows-2025
-            target: x86_64-pc-windows-msvc
-            artifact_name: rust-yaml-windows-amd64
-          - os: macos-15
-            target: x86_64-apple-darwin
-            artifact_name: rust-yaml-macos-amd64
-          - os: macos-15
-            target: aarch64-apple-darwin
-            artifact_name: rust-yaml-macos-arm64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Generate GitHub App Token
-        id: github_app_auth
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.APP_ID }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          private-key: ${{ secrets.PRIVATE_KEY }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: "0"
-
-      - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
-      - name: Set environment for cross-compilation
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> $GITHUB_ENV
-
-      - name: Build release binary
-        run: |
-          cargo build --release --target ${{ matrix.target }} --all-features
-          
-      - name: Create archive (Unix)
-        if: matrix.os != 'windows-2025'
-        run: |
-          cd target/${{ matrix.target }}/release
-          tar czf ${{ matrix.artifact_name }}.tar.gz rust-yaml
-          mv ${{ matrix.artifact_name }}.tar.gz ../../../
-
-      - name: Create archive (Windows)
-        if: matrix.os == 'windows-2025'
-        shell: pwsh
-        run: |
-          cd target/${{ matrix.target }}/release
-          Compress-Archive -Path rust-yaml.exe -DestinationPath ../../../${{ matrix.artifact_name }}.zip
-
-      - name: Upload to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            ${{ matrix.artifact_name }}.tar.gz
-            ${{ matrix.artifact_name }}.zip
-          token: ${{ secrets.GITHUB_TOKEN }}
-
   summary:
     name: Publication Summary
     needs: [validate, publish-crate, publish-docs]
@@ -314,7 +228,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.publish-crate.result }}" = "success" ]; then
             echo "✅ **crates.io:** Successfully published" >> $GITHUB_STEP_SUMMARY
             echo "   - View: https://crates.io/crates/rust-yaml/${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
@@ -324,7 +238,7 @@ jobs:
             echo "❌ **crates.io:** Failed or not completed" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.publish-docs.result }}" = "success" ]; then
             echo "✅ **Documentation:** Successfully published" >> $GITHUB_STEP_SUMMARY
             echo "   - docs.rs: https://docs.rs/rust-yaml/latest" >> $GITHUB_STEP_SUMMARY
@@ -335,7 +249,7 @@ jobs:
             echo "❌ **Documentation:** Failed or not completed" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "1. Verify the crate at: https://crates.io/crates/rust-yaml" >> $GITHUB_STEP_SUMMARY
