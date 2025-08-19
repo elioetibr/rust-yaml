@@ -4,9 +4,9 @@
 //! borrowed data structures where possible.
 
 use crate::{
-    BasicParser, Error, Limits, Parser, Position, ResourceTracker, Result,
     parser::{EventType, ScalarStyle},
     value_borrowed::BorrowedValue,
+    BasicParser, Error, Limits, Parser, Position, ResourceTracker, Result,
 };
 use indexmap::IndexMap;
 use std::collections::HashMap;

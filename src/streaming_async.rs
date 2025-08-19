@@ -14,8 +14,8 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, BufReader};
 
 use crate::{
-    Limits, Position, Result,
     parser::{Event, EventType},
+    Limits, Position, Result,
 };
 use std::collections::VecDeque;
 
@@ -384,7 +384,7 @@ mod async_tests {
 
     #[tokio::test]
     async fn test_stream_trait() {
-        use tokio::time::{Duration, timeout};
+        use tokio::time::{timeout, Duration};
 
         let yaml = "key: value\n";
         let cursor = Cursor::new(yaml.as_bytes().to_vec());

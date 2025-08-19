@@ -158,13 +158,14 @@ config:
             println!("✅ Complex structure parsed in: {:?}", parse_time);
 
             // Demonstrate value access
-            if let Value::Mapping(root) = &value
-                && let Some(Value::Mapping(_config)) =
+            if let Value::Mapping(root) = &value {
+                if let Some(Value::Mapping(_config)) =
                     root.get(&Value::String("config".to_string()))
-            {
-                println!("   • Database host extracted successfully");
-                println!("   • Alias resolution working (*creds)");
-                println!("   • Nested structure accessible");
+                {
+                    println!("   • Database host extracted successfully");
+                    println!("   • Alias resolution working (*creds)");
+                    println!("   • Nested structure accessible");
+                }
             }
         }
         Err(e) => println!("❌ Complex parsing failed: {}", e),

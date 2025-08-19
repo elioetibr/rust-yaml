@@ -121,7 +121,7 @@ pub use resolver::{BasicResolver, Resolver};
 pub use scanner::{BasicScanner, Scanner, Token, TokenType};
 pub use serializer::{BasicSerializer, Serializer};
 pub use streaming_enhanced::{
-    StreamConfig, StreamingYamlParser, stream_from_file, stream_from_string,
+    stream_from_file, stream_from_string, StreamConfig, StreamingYamlParser,
 };
 pub use zerocopy::{ScannerStats, TokenPool, ZeroScanner, ZeroString, ZeroToken, ZeroTokenType};
 // pub use profiling::{YamlProfiler, StringInterner, ObjectPool}; // Temporarily disabled

@@ -4,9 +4,9 @@
 //! minimizes memory allocations and unnecessary cloning operations.
 
 use crate::{
-    BasicParser, Error, Limits, Parser, Position, ResourceTracker, Result,
     parser::{EventType, ScalarStyle},
     zero_copy_value::OptimizedValue,
+    BasicParser, Error, Limits, Parser, Position, ResourceTracker, Result,
 };
 use indexmap::IndexMap;
 use std::collections::HashMap;

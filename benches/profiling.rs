@@ -2,7 +2,7 @@
 #![allow(clippy::needless_raw_string_hashes)]
 #![allow(clippy::write_with_newline)]
 
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rust_yaml::{
     BasicComposer, BasicEmitter, BasicParser, BasicScanner, Composer, Emitter, Parser, Scanner,
     Yaml,

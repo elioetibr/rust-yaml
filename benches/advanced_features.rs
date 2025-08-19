@@ -1,7 +1,7 @@
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::needless_raw_string_hashes)]
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use rust_yaml::{BasicComposer, BasicEmitter, Composer, Emitter, Value, Yaml};
 use std::time::Duration;
 

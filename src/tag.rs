@@ -289,7 +289,7 @@ impl TagResolver {
 
     /// Construct binary data from a tagged value (base64)
     fn construct_binary(&self, value: &str) -> Result<Value> {
-        use base64::{Engine as _, engine::general_purpose::STANDARD};
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
 
         // Remove whitespace from base64 string
         let clean = value

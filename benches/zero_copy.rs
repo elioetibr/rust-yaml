@@ -1,6 +1,6 @@
 //! Zero-copy parsing benchmarks
 
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rust_yaml::{
     BasicComposer, Composer, OptimizedComposer, OptimizedValue, ReducedAllocComposer, Value,
 };

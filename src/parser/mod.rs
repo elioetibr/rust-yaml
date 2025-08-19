@@ -1,8 +1,8 @@
 //! YAML parser for converting tokens to events
 
 use crate::{
-    BasicScanner, Error, Limits, Position, Result, Scanner, Token, TokenType, error::ErrorContext,
-    tag::TagResolver,
+    error::ErrorContext, tag::TagResolver, BasicScanner, Error, Limits, Position, Result, Scanner,
+    Token, TokenType,
 };
 
 pub mod events;

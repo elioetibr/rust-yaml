@@ -1,7 +1,7 @@
 //! Benchmarks for streaming YAML parsing
 
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use rust_yaml::{BasicParser, Parser, StreamConfig, stream_from_string};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use rust_yaml::{stream_from_string, BasicParser, Parser, StreamConfig};
 
 /// Generate a large YAML document for testing
 fn generate_large_yaml(entries: usize) -> String {

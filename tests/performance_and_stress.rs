@@ -94,11 +94,11 @@ fn test_sequence_performance() {
 
     println!("Sequence parsing completed in: {:?}", parse_duration);
 
-    if let Ok(Value::Mapping(ref map)) = result
-        && let Some(Value::Sequence(seq)) = map.get(&Value::String("array".to_string()))
-    {
-        assert_eq!(seq.len(), 100, "Should have all sequence items");
-        println!("Parsed sequence with {} items", seq.len());
+    if let Ok(Value::Mapping(ref map)) = result {
+        if let Some(Value::Sequence(seq)) = map.get(&Value::String("array".to_string())) {
+            assert_eq!(seq.len(), 100, "Should have all sequence items");
+            println!("Parsed sequence with {} items", seq.len());
+        }
     }
 }
 

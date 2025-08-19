@@ -1,6 +1,6 @@
 #![allow(clippy::needless_raw_string_hashes)] // Test YAML strings
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, Criterion};
 use rust_yaml::{BasicScanner, Scanner, Yaml, ZeroScanner};
 
 fn parse_simple_document(c: &mut Criterion) {

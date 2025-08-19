@@ -2,8 +2,8 @@
 name = "rust-yaml"
 version = "0.0.3"
 authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
-edition = "2024"
-rust-version = "1.89.0"
+edition = "2021"
+rust-version = "1.85.0"
 description = "A fast, safe YAML 1.2 library for Rust"
 documentation = "https://docs.rs/rust-yaml"
 readme = "README.md"
@@ -79,7 +79,6 @@ rustdoc-args = [
   "--cfg",
   "docsrs",
   "--document-private-items",
-  "--display-warnings",
 ]
 # Specify targets for docs.rs to build
 targets = ["x86_64-unknown-linux-gnu"]
@@ -89,6 +88,18 @@ crate-type = ["lib"]
 name = "rust_yaml"
 path = "src/lib.rs"
 required-features = []
+
+[[example]]
+name = "library_comparison"
+doc-scrape-examples = true
+
+[[example]]
+name = "merge_key_demo"
+doc-scrape-examples = true
+
+[[example]]
+name = "streaming_parser_demo"
+doc-scrape-examples = true
 
 [[bench]]
 harness = false

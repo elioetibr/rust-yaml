@@ -1,7 +1,7 @@
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::needless_raw_string_hashes)]
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, Criterion};
 use rust_yaml::Yaml;
 
 fn bench_simple_scalars(c: &mut Criterion) {

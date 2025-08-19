@@ -1,6 +1,6 @@
 //! YAML scanner for tokenization
 
-use crate::{Error, Limits, Position, ResourceTracker, Result, error::ErrorContext};
+use crate::{error::ErrorContext, Error, Limits, Position, ResourceTracker, Result};
 
 pub mod indentation;
 pub mod scalar_scanner;
@@ -2084,11 +2084,9 @@ data: test
         assert_eq!(scalar_values, vec!["key", "value", "data", "test"]);
 
         // Should not contain any comment tokens
-        assert!(
-            !tokens
-                .iter()
-                .any(|t| matches!(t.token_type, TokenType::Comment(_)))
-        );
+        assert!(!tokens
+            .iter()
+            .any(|t| matches!(t.token_type, TokenType::Comment(_))));
     }
 
     #[test]
@@ -2110,11 +2108,9 @@ normal: value # This is a comment
         assert!(scalar_values.contains(&"This has a # character".to_string()));
         assert!(scalar_values.contains(&"Also has # character".to_string()));
         assert!(scalar_values.contains(&"value".to_string()));
-        assert!(
-            !scalar_values
-                .iter()
-                .any(|s| s.contains("This is a comment"))
-        );
+        assert!(!scalar_values
+            .iter()
+            .any(|s| s.contains("This is a comment")));
     }
 
     #[test]

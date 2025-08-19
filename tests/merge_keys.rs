@@ -364,17 +364,17 @@ list:
     let yaml = Yaml::new();
     let result = yaml.load_str(yaml_str).expect("Failed to parse YAML");
 
-    if let Value::Mapping(root) = result
-        && let Some(Value::Sequence(list)) = root.get(&Value::String("list".to_string()))
-    {
-        // First item should be a mapping with the merge
-        if let Value::Mapping(first) = &list[0] {
-            // Since we're in a sequence, the merge should work
-            assert_eq!(
-                first.get(&Value::String("a".to_string())),
-                Some(&Value::Int(1)),
-                "Merge should work in mapping within sequence"
-            );
+    if let Value::Mapping(root) = result {
+        if let Some(Value::Sequence(list)) = root.get(&Value::String("list".to_string())) {
+            // First item should be a mapping with the merge
+            if let Value::Mapping(first) = &list[0] {
+                // Since we're in a sequence, the merge should work
+                assert_eq!(
+                    first.get(&Value::String("a".to_string())),
+                    Some(&Value::Int(1)),
+                    "Merge should work in mapping within sequence"
+                );
+            }
         }
     }
 }

@@ -1,9 +1,9 @@
 #![allow(clippy::needless_raw_string_hashes)]
 #![allow(clippy::uninlined_format_args)]
 
-use rust_yaml::Yaml;
 use rust_yaml::scanner::BasicScanner;
 use rust_yaml::value::IndentStyle;
+use rust_yaml::Yaml;
 
 #[test]
 fn test_spaces_indentation_detection_2_spaces() {

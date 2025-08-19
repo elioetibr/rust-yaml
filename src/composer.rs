@@ -4,7 +4,7 @@
 use crate::scanner::Scanner;
 use crate::tag::TagResolver;
 use crate::{
-    BasicParser, Error, Limits, Parser, Position, ResourceTracker, Result, Value, parser::EventType,
+    parser::EventType, BasicParser, Error, Limits, Parser, Position, ResourceTracker, Result, Value,
 };
 use indexmap::IndexMap;
 use std::collections::HashMap;
