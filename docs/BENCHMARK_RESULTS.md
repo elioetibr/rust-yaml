@@ -35,6 +35,7 @@ test: *f
 | Tag Directives (%TAG, %YAML) | ✅ **Full** | ❌ Limited | ❌ Limited | ❌ Limited | ❌ Limited |
 | Explicit Type Tags (!!str, !!int) | ✅ **Complete** | ⚠️ Subset | ⚠️ Subset | ⚠️ Subset | ⚠️ Subset |
 | Binary Data (!!binary) | ✅ **Native** | ❌ No | ❌ No | ❌ No | ❌ No |
+| Complex Keys (Sequences/Mappings) | ✅ **Full** | ❌ No | ❌ No | ❌ No | ❌ No |
 | Complex Collections | ✅ **Full** | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited | ⚠️ Limited |
 | Type Coercion | ✅ **Automatic** | ⚠️ Manual | ⚠️ Manual | ⚠️ Manual | ⚠️ Manual |
 
@@ -50,9 +51,15 @@ integer: !!int "456"   # Forces int from string
 float: !!float "3.14"  # Forces float from string
 binary: !!binary |     # Base64 binary data
   SGVsbG8gV29ybGQh
+
+# Complex keys - sequences and mappings as keys
+? [name, age]
+: [John, 30]
+? {first: Alice, last: Smith}
+: person_data
 ```
 
-**rust-yaml**: ✅ Parses perfectly with full type resolution (5.1ms)
+**rust-yaml**: ✅ Parses perfectly with full type resolution and complex keys (5.1ms)
 
 **Other libraries**: ❌ May fail on directives, limited type coercion, no binary support
 
@@ -119,7 +126,7 @@ let config = YamlConfig {
 
 | Library | Status | Last Update | Vulnerabilities |
 |---------|--------|-------------|-----------------|
-| **rust-yaml** | ✅ **Active Development** | 2024-current | None known |
+| **rust-yaml** | ✅ **Active Development** | 2025-current | None known |
 | serde_yaml | ❌ **Deprecated** | 2024 (deprecated) | Unfixed issues |
 | yaml-rust | ⚠️ Maintenance only | 2021 | Known issues |
 | yaml-rust2 | ✅ Active | 2024 | Some issues |
@@ -134,7 +141,7 @@ let config = YamlConfig {
 use serde_yaml;
 let value: Value = serde_yaml::from_str(input)?; // ❌ Security risks
 
-// New (secure, maintained)  
+// New (secure, maintained)
 use rust_yaml::{Yaml, YamlConfig, Limits};
 let config = YamlConfig { limits: Limits::strict(), ..Default::default() };
 let yaml = Yaml::with_config(config);

@@ -122,13 +122,13 @@ yaml.add_tag_handler("!custom", custom_handler);
 
 ```
 Document Size: 1MB nested YAML
-┌─────────────────┬─────────────┬─────────────┬─────────────┐
-│ Library         │ Parse Time  │ Memory      │ Features    │
-├─────────────────┼─────────────┼─────────────┼─────────────┤
-│ rust-yaml       │ 45ms        │ 12MB        │ Full spec   │
-│ yaml-rust2      │ 52ms        │ 18MB        │ Subset      │
-│ serde_yml       │ 48ms        │ 15MB        │ Serde-only  │
-└─────────────────┴─────────────┴─────────────┴─────────────┘
+┌──────────┬────────┬────────┬───────┐
+│ Library         │ Parse Time  │ Memory      │ Features   │
+├──────────┼────────┼────────┼───────┤
+│ rust-yaml       │ 45ms        │ 12MB        │ Full spec  │
+│ yaml-rust2      │ 52ms        │ 18MB        │ Subset     │
+│ serde_yml       │ 48ms        │ 15MB        │ Serde-only │
+└──────────┴────────┴────────┴───────┘
 ```
 
 ### Memory Efficiency
@@ -237,6 +237,7 @@ let docs = yaml.load_all_str(input)?;
 - ✅ Security is critical (untrusted input)
 - ✅ Performance and memory efficiency matter
 - ✅ Working with complex YAML documents
+- ✅ Need complex keys (sequences/mappings as keys)
 - ✅ Need round-trip preservation
 - ✅ Want modern, actively developed library
 
@@ -277,7 +278,7 @@ let config: Config = serde_support::from_yaml(&yaml.load_str(input)?)?;
 **rust-yaml** represents a next-generation YAML library for Rust, offering:
 
 1. **Complete YAML 1.2 implementation** vs. subset support in others
-2. **Production-grade security** vs. basic protection in alternatives  
+2. **Production-grade security** vs. basic protection in alternatives
 3. **Multiple performance models** vs. single approach in existing libraries
 4. **Active development** vs. maintenance mode or deprecation
 5. **Modern architecture** designed for 2024+ Rust ecosystem

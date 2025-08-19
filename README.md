@@ -219,6 +219,30 @@ mapping: !!map {key: value}     # Explicit mapping
 let parsed = yaml.load_str(yaml_with_tags)?;
 ```
 
+#### Complex Keys (Sequences and Mappings as Keys)
+
+```rust
+// YAML 1.2 supports using complex structures as mapping keys
+let yaml_with_complex_keys = r#"
+# Sequence as a key
+? [name, age]
+: [John, 30]
+
+# Mapping as a key  
+? {first: Alice, last: Smith}
+: person_data
+
+# Mixed with regular keys
+simple_key: simple_value
+? [complex, sequence, key]
+: complex_value
+"#;
+
+let parsed = yaml.load_str(yaml_with_complex_keys)?;
+// The parser correctly handles complex keys and can round-trip them
+let serialized = yaml.dump_str(&parsed)?;
+```
+
 ## Real-World Usage
 
 ### Configuration Management
