@@ -13,7 +13,7 @@ on:
       - "benches/**"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
   pages: write
   pull-requests: write
@@ -77,7 +77,7 @@ jobs:
     needs: version
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     strategy:
       fail-fast: false
       matrix:
@@ -202,7 +202,7 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     timeout-minutes: 6
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     steps:
       - name: Generate GitHub App Token
         id: github_app_auth
@@ -233,7 +233,7 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     timeout-minutes: 6
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     steps:
       - name: Generate GitHub App Token
         id: github_app_auth
@@ -286,7 +286,7 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 6
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     steps:
       - name: Generate GitHub App Token
         id: github_app_auth
@@ -336,21 +336,26 @@ jobs:
             ${{ runner.os }}-cargo-build-stable-
 
       - name: Generate coverage report
-        run: cargo tarpaulin --lib --out lcov --output-dir . --verbose
+        run: |
+          cargo tarpaulin --lib --tests --out lcov --output-dir . --verbose --workspace --timeout 120 --exclude-files examples/* benches/*
+          ls -la lcov.info
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
-          files: lcov.info
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: elioetibr/rust-yaml
+          files: ./lcov.info
+          fail_ci_if_error: false
+          verbose: true
+          name: rust-yaml-coverage
+          flags: unittests
 
   security_audit:
     name: Security Audit
     runs-on: ubuntu-latest
     timeout-minutes: 6
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     steps:
       - name: Generate GitHub App Token
         id: github_app_auth
@@ -387,7 +392,7 @@ jobs:
     name: Dependency Check
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     steps:
       - name: Generate GitHub App Token
         id: github_app_auth
@@ -424,7 +429,7 @@ jobs:
     name: Benchmark
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     steps:
       - name: Generate GitHub App Token
         id: github_app_auth
@@ -525,7 +530,7 @@ jobs:
         run: cargo doc --all-features --no-deps --open
 
   build:
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    if: ${{ success() && !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     needs:
       [
         docs,
@@ -545,10 +550,6 @@ jobs:
       BUILD_OS: ubuntu-latest
       BUILD_ARCH: x86_64
       BUILD_TARGET: x86_64-unknown-linux-gnu
-    permissions:
-      contents: write
-      id-token: write
-      packages: write
     # Ensure only one build job runs at a time to prevent resource conflicts
     concurrency:
       group: build-ubuntu-latest-x86_64-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

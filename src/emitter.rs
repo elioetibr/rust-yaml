@@ -714,6 +714,13 @@ impl BasicEmitter {
                 }
                 self.emit_value(&commented.value, writer)?;
 
+                // Emit inner comments for collections
+                if let Some(comments) = comments {
+                    if !comments.inner.is_empty() {
+                        self.emit_inner_comments(&comments.inner, writer)?;
+                    }
+                }
+
                 // Trailing comments for collections go on a new line
                 if let Some(comments) = comments {
                     if let Some(ref trailing) = comments.trailing {
@@ -735,6 +742,16 @@ impl BasicEmitter {
         }
 
         Ok(())
+    }
+
+    /// Emit a CommentedValue with comment preservation (public API)
+    pub fn emit_commented_value_public<W: Write>(
+        &mut self,
+        commented: &CommentedValue,
+        writer: W,
+    ) -> Result<()> {
+        let mut writer = writer;
+        self.emit_commented_value(commented, &mut writer)
     }
 }
 

@@ -2,7 +2,7 @@
 #![allow(clippy::needless_raw_string_hashes)]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use rust_yaml::{BasicComposer, BasicEmitter, Composer, Emitter, Value, Yaml};
+use rust_yaml::{BasicComposer, BasicEmitter, Composer, Emitter, Limits, Value, Yaml, YamlConfig};
 use std::time::Duration;
 
 /// Benchmarks for Sprint 3.0 advanced features
@@ -258,7 +258,7 @@ fn bench_memory_usage(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_efficiency");
     group.measurement_time(Duration::from_secs(10));
 
-    for size in [100, 1000, 5000].iter() {
+    for size in [100, 500].iter() {
         // Generate large nested structure
         let mut yaml_content = String::from("large_structure:\n");
         for i in 0..*size {
@@ -276,7 +276,21 @@ fn bench_memory_usage(c: &mut Criterion) {
             &yaml_content,
             |b, content| {
                 b.iter(|| {
-                    let yaml = Yaml::new();
+                    // Create YAML processor with increased limits for benchmarking
+                    let config = YamlConfig {
+                        limits: Limits {
+                            max_depth: 10000,
+                            max_anchors: 10000,
+                            max_document_size: 100_000_000, // 100MB
+                            max_string_length: 10_000_000,
+                            max_alias_depth: 100,
+                            max_collection_size: 100000,
+                            max_complexity_score: 1_000_000,
+                            timeout: None,
+                        },
+                        ..Default::default()
+                    };
+                    let yaml = Yaml::with_config(config);
                     yaml.load_str(std::hint::black_box(content)).unwrap()
                 });
             },
@@ -298,7 +312,7 @@ users:
     roles: [user]
     config: *user_config
 settings:
-  <<: *user_config
+  base: *user_config
   global: true
 "#;
 

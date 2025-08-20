@@ -1,11 +1,26 @@
 //! YAML constructor for building Rust objects
 
-use crate::{BasicComposer, Composer, Error, Limits, Position, Result, Value};
+use crate::{
+    BasicComposer, CommentPreservingComposer, CommentedValue, Composer, Error, Limits, Position,
+    Result, Value,
+};
 
 /// Trait for YAML constructors that convert document nodes to Rust objects
 pub trait Constructor {
     /// Construct a single value
     fn construct(&mut self) -> Result<Option<Value>>;
+
+    /// Check if there are more values to construct
+    fn check_data(&self) -> bool;
+
+    /// Reset the constructor state
+    fn reset(&mut self);
+}
+
+/// Trait for comment-preserving constructors
+pub trait CommentPreservingConstructor {
+    /// Construct a single value with comments
+    fn construct_commented(&mut self) -> Result<Option<CommentedValue>>;
 
     /// Check if there are more values to construct
     fn check_data(&self) -> bool;
@@ -192,6 +207,56 @@ impl Constructor for SafeConstructor {
 
     fn reset(&mut self) {
         self.composer.reset();
+        self.position = Position::start();
+    }
+}
+
+/// Comment-preserving constructor that maintains comments during parsing
+#[derive(Debug)]
+pub struct RoundTripConstructor {
+    composer: CommentPreservingComposer,
+    position: Position,
+    limits: Limits,
+}
+
+impl RoundTripConstructor {
+    /// Create a new round-trip constructor with comment preservation
+    pub fn new(input: String) -> Self {
+        Self::with_limits(input, Limits::default())
+    }
+
+    /// Create a new round-trip constructor with custom limits
+    pub fn with_limits(input: String, limits: Limits) -> Self {
+        // Use comment-preserving composer
+        let composer = CommentPreservingComposer::with_limits(input, limits.clone());
+        let position = Position::start();
+
+        Self {
+            composer,
+            position,
+            limits,
+        }
+    }
+
+    /// Parse the input and build CommentedValue tree
+    fn parse_with_comments(&mut self) -> Result<Option<CommentedValue>> {
+        // Use the comment-preserving composer directly
+        self.composer.compose_document()
+    }
+}
+
+impl CommentPreservingConstructor for RoundTripConstructor {
+    fn construct_commented(&mut self) -> Result<Option<CommentedValue>> {
+        self.parse_with_comments()
+    }
+
+    fn check_data(&self) -> bool {
+        // Check if there are more documents to parse
+        // For now, simple implementation
+        true
+    }
+
+    fn reset(&mut self) {
         self.position = Position::start();
     }
 }

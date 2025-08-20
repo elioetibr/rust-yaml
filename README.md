@@ -1,7 +1,7 @@
 # rust-yaml
 
 [![CI](https://github.com/elioetibr/rust-yaml/actions/workflows/ci.yml/badge.svg)](https://github.com/elioetibr/rust-yaml/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/elioetibr/rust-yaml/branch/main/graph/badge.svg)](https://codecov.io/gh/elioetibr/rust-yaml)
+[![codecov](https://codecov.io/gh/elioetibr/rust-yaml/graph/badge.svg?token=u35QeHs4KV)](https://codecov.io/gh/elioetibr/rust-yaml)
 [![Crates.io](https://img.shields.io/crates/v/rust-yaml.svg)](https://crates.io/crates/rust-yaml)
 [![docs.rs](https://docs.rs/rust-yaml/badge.svg)](https://docs.rs/rust-yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -12,40 +12,45 @@ A complete, fast, and safe YAML 1.2 library for Rust with advanced features and 
 
 ## Table of Contents
 
-- [Why rust-yaml?](#why-rust-yaml)
-- [Features](#features)
-  - [Core Features](#core-features)
-  - [Advanced Features](#advanced-features)
-
-- [Quick Start](#quick-start)
-  - [Basic Usage](#basic-usage)
-  - [Multi-Document Support](#multi-document-support)
-  - [Custom Configuration](#custom-configuration)
-  - [Advanced Features Examples](#advanced-features-examples)
-
-- [Real-World Usage](#real-world-usage)
-  - [Configuration Management](#configuration-management)
-  - [Data Processing with Type Safety](#data-processing-with-type-safety)
-  - [Smart Serialization](#smart-serialization)
-
-- [Value Types](#value-types)
-- [Error Handling](#error-handling)
-- [Loader Types](#loader-types)
-- [Performance](#performance)
-  - [Benchmarks](#benchmarks)
-
-- [Feature Flags](#feature-flags)
-- [Feature Status](#feature-status)
-- [Contributing](#contributing)
-  - [Development Setup](#development-setup)
-  - [Development Commands](#development-commands)
-
-- [Documentation](#documentation)
-  - [Complete Documentation Index](#complete-documentation-index)
-
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
-- [Related Projects](#related-projects)
+- [rust-yaml](#rust-yaml)
+  - [Table of Contents](#table-of-contents)
+  - [Why rust-yaml?](#why-rust-yaml)
+  - [Features](#features)
+    - [Core Features](#core-features)
+    - [Advanced Features](#advanced-features)
+  - [Quick Start](#quick-start)
+    - [Basic Usage](#basic-usage)
+    - [Multi-Document Support](#multi-document-support)
+    - [Custom Configuration](#custom-configuration)
+    - [Advanced Features Examples](#advanced-features-examples)
+      - [Anchors and Aliases](#anchors-and-aliases)
+      - [Multi-line Strings](#multi-line-strings)
+      - [Explicit Type Tags](#explicit-type-tags)
+      - [Complex Keys (Sequences and Mappings as Keys)](#complex-keys-sequences-and-mappings-as-keys)
+  - [Real-World Usage](#real-world-usage)
+    - [Configuration Management](#configuration-management)
+    - [Data Processing with Type Safety](#data-processing-with-type-safety)
+    - [Smart Serialization](#smart-serialization)
+  - [Value Types](#value-types)
+  - [Error Handling](#error-handling)
+  - [Loader Types](#loader-types)
+  - [Performance](#performance)
+    - [Benchmarks](#benchmarks)
+  - [Feature Flags](#feature-flags)
+  - [Feature Status](#feature-status)
+    - [✅ Core YAML 1.2 Implementation (COMPLETE)](#-core-yaml-12-implementation-complete)
+    - [✅ Advanced Features (COMPLETE)](#-advanced-features-complete)
+    - [✅ **Comment Preservation (IMPLEMENTED)**](#-comment-preservation-implemented)
+    - [✅ **Schema Validation (IMPLEMENTED)**](#-schema-validation-implemented)
+    - [🎯 Future Enhancements](#-future-enhancements)
+  - [Contributing](#contributing)
+    - [Development Setup](#development-setup)
+    - [Development Commands](#development-commands)
+  - [Documentation](#documentation)
+    - [Complete Documentation Index](#complete-documentation-index)
+  - [License](#license)
+  - [Acknowledgments](#acknowledgments)
+  - [Related Projects](#related-projects)
 
 ## Why rust-yaml?
 
@@ -56,7 +61,7 @@ rust-yaml stands out from other YAML libraries by providing:
 - **🛡️ Security first** - No unsafe code, protection against malicious input, configurable limits
 - **🚀 High performance** - Zero-copy parsing, minimal allocations, optimized algorithms
 - **📍 Developer-friendly errors** - Precise error locations with visual context and suggestions
-- **🔄 Perfect round-trips** - Parse → serialize → parse with full fidelity
+- **🔄 Structural round-trips** - Parse → serialize → parse with data consistency
 - **🏗️ Production ready** - Comprehensive testing, fuzzing, and real-world validation
 
 ## Features
@@ -68,7 +73,7 @@ rust-yaml stands out from other YAML libraries by providing:
 - 🔒 **Reliable**: Comprehensive error handling with precise position information
 - 🧹 **Clean**: Well-documented API following Rust best practices
 - 📝 **YAML 1.2**: Full YAML 1.2 specification compliance
-- 🔄 **Round-trip**: Complete parse → serialize → parse consistency
+- 🔄 **Round-trip**: Structural parse → serialize → parse consistency
 
 ### Advanced Features
 
@@ -85,7 +90,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rust-yaml = "0.0.2"
+rust-yaml = "0.0.5"
 ```
 
 ### Basic Usage
@@ -99,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse YAML from a string
     let yaml_content = r#"
         name: "rust-yaml"
-        version: "0.0.2"
+        version: "0.0.5"
         features:
           - fast
           - safe
@@ -224,6 +229,7 @@ let parsed = yaml.load_str(yaml_with_tags)?;
 ```rust
 // YAML 1.2 supports using complex structures as mapping keys
 let yaml_with_complex_keys = r#"
+
 # Sequence as a key
 ? [name, age]
 : [John, 30]
@@ -367,7 +373,7 @@ Different loader types provide varying levels of functionality and security:
 
 - **`Safe`** (default): Only basic YAML types, no code execution
 - **`Base`**: Minimal type set for simple use cases
-- **`RoundTrip`**: Preserves formatting (planned for v1.1+)
+- **`RoundTrip`**: Preserves formatting and comments (partial implementation available)
 - **`Full`**: All features including potentially unsafe operations
 
 ## Performance
@@ -399,7 +405,7 @@ cargo test --features large-documents
 
 ```toml
 [dependencies]
-rust-yaml = { version = "0.0.2", features = ["serde", "large-documents"] }
+rust-yaml = { version = "0.0.5", features = ["serde", "large-documents"] }
 ```
 
 - **`default = ["mmap", "preserve-order"]`**: Default feature set with memory mapping and order preservation
@@ -421,7 +427,7 @@ rust-yaml = { version = "0.0.2", features = ["serde", "large-documents"] }
 - ✅ **Safe loading/dumping** - Security controls and configurable limits
 - ✅ **Multi-document support** - Proper document boundaries with `---`
 - ✅ **Flow and block styles** - Automatic detection and round-trip preservation
-- ✅ **Perfect round-trip support** - Parse → serialize → parse with full fidelity
+- ✅ **Structural round-trip support** - Parse → serialize → parse with data consistency
 
 ### ✅ Advanced Features (COMPLETE)
 
@@ -441,15 +447,93 @@ rust-yaml = { version = "0.0.2", features = ["serde", "large-documents"] }
 
 - ✅ **Explicit type tags** (`!!str`, `!!int`, `!!map`, `!!seq`) with normalization
 - ✅ **Complex key support** - Sequences and mappings as mapping keys
+
+**Enterprise Features**
+
+- ✅ **Complete comment correlation system** - Full round-trip comment preservation
+- ✅ **Schema validation with custom rules** - Comprehensive validation framework
 - ✅ **Enhanced error handling** - Contextual reporting with visual indicators
+
+### ✅ **Comment Preservation (IMPLEMENTED)**
+
+**Full Round-trip Comment Preservation**
+
+- ✅ **Infrastructure complete** - CommentedValue, RoundTripConstructor, comment-aware scanner
+- ✅ **API available** - `load_str_with_comments()`, `dump_str_with_comments()`
+- ✅ **Comment correlation** - Comments properly correlated with parsed values  
+- ✅ **Full round-trip** - Comments preserved during parse/serialize cycle
+- ✅ **All comment types** - Leading, trailing, and inner comments supported
+
+```rust
+// Full comment preservation example
+let config = YamlConfig { 
+    preserve_comments: true, 
+    loader_type: LoaderType::RoundTrip, 
+    ..Default::default() 
+};
+let yaml = Yaml::with_config(config);
+
+// Parse with full comment preservation
+let commented_value = yaml.load_str_with_comments(yaml_with_comments)?;
+
+// Serialize back with comments intact
+let output = yaml.dump_str_with_comments(&commented_value)?;
+// Output includes all original comments in appropriate positions
+```
+
+### ✅ **Schema Validation (IMPLEMENTED)**
+
+**Enterprise-Grade Validation System**
+
+- ✅ **Comprehensive rule system** - Type, pattern, range, length, enum validation
+- ✅ **Complex validation logic** - Conditional (if-then-else), anyOf, allOf, oneOf, not
+- ✅ **Object validation** - Property schemas, required fields, additional properties control
+- ✅ **Array validation** - Item schemas, length constraints
+- ✅ **Custom validators** - User-defined validation functions
+- ✅ **Detailed error reporting** - Path-specific errors with human-readable messages
+- ✅ **Integration with YAML API** - Direct validation during parsing
+
+```rust
+use rust_yaml::{Yaml, Schema, SchemaRule, ValueType};
+use regex::Regex;
+use std::collections::HashMap;
+
+// Create comprehensive schema
+let mut properties = HashMap::new();
+properties.insert("name".to_string(), 
+    Schema::with_type(ValueType::String)
+        .rule(SchemaRule::Length { min: Some(1), max: Some(100) }));
+properties.insert("email".to_string(), 
+    Schema::with_type(ValueType::String)
+        .rule(SchemaRule::Pattern(Regex::new(r"^[^@]+@[^@]+\.[^@]+$").unwrap())));
+properties.insert("age".to_string(), 
+    Schema::with_type(ValueType::Integer)
+        .rule(SchemaRule::Range { min: Some(0.0), max: Some(150.0) }));
+
+let schema = Schema::with_type(ValueType::Object)
+    .rule(SchemaRule::Properties(properties))
+    .rule(SchemaRule::Required(vec!["name".to_string(), "email".to_string()]))
+    .info("User Schema", "Validates user information");
+
+let yaml = Yaml::new();
+
+// Load and validate in one step
+let user_data = yaml.load_str_with_schema(r#"
+name: "Alice Johnson"
+email: "alice@example.com"
+age: 30
+"#, &schema)?;
+
+// Or validate existing data
+let parsed_data = yaml.load_str("name: Bob")?;
+yaml.validate_with_schema(&parsed_data, &schema)?; // Will fail - missing email
+```
 
 ### 🎯 Future Enhancements
 
 **Enterprise Features**
 
-- [ ] Schema validation with custom rules
 - [ ] Custom type registration for Rust structs
-- [ ] Comment preservation during round-trip operations
 - [ ] Plugin system for extensible functionality
 
 **Performance & Developer Tools**
@@ -513,8 +597,21 @@ make deny             # Run cargo deny checks
 ```bash
 make doc              # Build documentation
 make doc-open         # Build and open documentation
-make coverage         # Generate test coverage report
 make bench            # Run performance benchmarks
+```
+
+**Coverage Reports**
+
+```bash
+make coverage         # Generate test coverage report (CI-compatible)
+make coverage-html    # Generate HTML coverage report
+make coverage-view    # Generate and open HTML coverage in browser
+make coverage-clean   # Clean coverage artifacts
+make coverage-install-tools  # Install coverage tools
+
+# Alternative coverage tools
+make coverage-llvm    # Generate coverage using llvm-cov
+make coverage-llvm-html  # Generate HTML coverage with llvm-cov
 ```
 
 **CI/CD & Checks**
@@ -570,7 +667,6 @@ The project includes comprehensive documentation in the [`docs/`](./docs/) direc
 - [**Code of Conduct**](./CODE_OF_CONDUCT.md) - Community guidelines
 - [**Contributing**](./CONTRIBUTING.md) - Contribution guidelines and process
 - [**Security**](./SECURITY.md) - Security policy and vulnerability reporting
-- [**Development Notes**](./CLAUDE.md) - AI-assisted development guidance
 
 ## License
 

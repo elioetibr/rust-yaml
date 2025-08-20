@@ -60,6 +60,8 @@ clean: ## Clean build artifacts and temporary files
 	@cargo clean
 	@rm -f debug_*
 	@rm -f test_*
+	@rm -f lcov.info cobertura.xml
+	@rm -rf target/tarpaulin target/llvm-cov
 	@find . -name "*.tmp" -delete
 	@echo "✅ Clean complete"
 
@@ -169,22 +171,61 @@ bench-compile: ## Compile benchmarks only
 	@cargo bench --no-run
 
 # Coverage
-coverage: ## Generate test coverage report
-	@echo "📊 Generating coverage report..."
-	@if ! command -v cargo-llvm-cov >/dev/null; then cargo install cargo-llvm-cov; fi
-	@timeout 60s cargo llvm-cov --lib --lcov --output-path lcov.info
-	@echo "Coverage report generated: lcov.info"
+coverage: ## Generate test coverage report (same as CI)
+	@echo "📊 Generating coverage report (CI-compatible)..."
+	@if ! command -v cargo-tarpaulin >/dev/null; then \
+		echo "Installing cargo-tarpaulin..."; \
+		cargo install cargo-tarpaulin; \
+	fi
+	@cargo tarpaulin --lib --tests --out lcov --output-dir . --verbose --workspace --timeout 120 --exclude-files examples/* benches/*
+	@echo "✅ Coverage report generated: lcov.info"
+	@echo "📈 Coverage summary:"
+	@cargo tarpaulin --lib --tests --print-summary --workspace --timeout 120 --exclude-files examples/* benches/*
 
 coverage-html: ## Generate HTML coverage report
 	@echo "📊 Generating HTML coverage report..."
-	@if ! command -v cargo-llvm-cov >/dev/null; then cargo install cargo-llvm-cov; fi
-	@timeout 60s cargo llvm-cov --lib --html
-	@echo "HTML coverage report generated in target/llvm-cov/html/"
+	@if ! command -v cargo-tarpaulin >/dev/null; then \
+		echo "Installing cargo-tarpaulin..."; \
+		cargo install cargo-tarpaulin; \
+	fi
+	@cargo tarpaulin --lib --tests --out html --output-dir target/tarpaulin --verbose --workspace --timeout 120 --exclude-files examples/* benches/*
+	@echo "✅ HTML coverage report generated in target/tarpaulin/"
+	@echo "📂 Open target/tarpaulin/tarpaulin-report.html in your browser"
 
-coverage-tarpaulin: ## Generate coverage using tarpaulin (alternative)
-	@echo "📊 Generating coverage with tarpaulin..."
-	@if ! command -v cargo-tarpaulin >/dev/null; then cargo install cargo-tarpaulin; fi
-	@timeout 60s cargo tarpaulin --lib --out lcov --output-dir .
+coverage-llvm: ## Generate coverage using llvm-cov (alternative)
+	@echo "📊 Generating coverage with llvm-cov..."
+	@if ! command -v cargo-llvm-cov >/dev/null; then \
+		echo "Installing cargo-llvm-cov..."; \
+		cargo install cargo-llvm-cov; \
+	fi
+	@cargo llvm-cov --lib --lcov --output-path lcov.info
+	@echo "✅ Coverage report generated: lcov.info"
+
+coverage-llvm-html: ## Generate HTML coverage with llvm-cov
+	@echo "📊 Generating HTML coverage with llvm-cov..."
+	@if ! command -v cargo-llvm-cov >/dev/null; then \
+		echo "Installing cargo-llvm-cov..."; \
+		cargo install cargo-llvm-cov; \
+	fi
+	@cargo llvm-cov --lib --html
+	@echo "✅ HTML coverage report generated in target/llvm-cov/html/"
+
+coverage-clean: ## Clean coverage artifacts
+	@echo "🧹 Cleaning coverage artifacts..."
+	@rm -f lcov.info cobertura.xml
+	@rm -rf target/tarpaulin target/llvm-cov
+	@echo "✅ Coverage artifacts cleaned"
+
+coverage-view: coverage-html ## Generate and open HTML coverage report
+	@echo "🌐 Opening coverage report in browser..."
+	@if [ -f target/tarpaulin/tarpaulin-report.html ]; then \
+		open target/tarpaulin/tarpaulin-report.html 2>/dev/null || xdg-open target/tarpaulin/tarpaulin-report.html 2>/dev/null || echo "Please open target/tarpaulin/tarpaulin-report.html manually"; \
+	fi
+
+coverage-install-tools: ## Install coverage tools
+	@echo "📦 Installing coverage tools..."
+	@cargo install cargo-tarpaulin cargo-llvm-cov
+	@echo "✅ Coverage tools installed"
 
 # Build
 build: ## Build the project

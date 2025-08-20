@@ -1,6 +1,9 @@
 //! Main YAML API interface
 
-use crate::{BasicEmitter, Constructor, Emitter, Limits, Result, SafeConstructor, Value};
+use crate::{
+    BasicEmitter, CommentPreservingConstructor, CommentedValue, Constructor, Emitter, Limits,
+    Result, RoundTripConstructor, SafeConstructor, Schema, SchemaValidator, Value,
+};
 use std::io::{Read, Write};
 
 /// Configuration for YAML processing
@@ -218,6 +221,51 @@ impl Yaml {
         Ok(())
     }
 
+    /// Load YAML from a string with comment preservation (RoundTrip mode only)
+    pub fn load_str_with_comments(&self, input: &str) -> Result<CommentedValue> {
+        if !self.config.preserve_comments || self.config.loader_type != LoaderType::RoundTrip {
+            // If not in round-trip mode, parse normally and wrap in CommentedValue
+            let value = self.load_str(input)?;
+            return Ok(CommentedValue::new(value));
+        }
+
+        self.parse_yaml_string_with_comments(input)
+    }
+
+    /// Dump a CommentedValue to a string, preserving comments
+    pub fn dump_str_with_comments(&self, value: &CommentedValue) -> Result<String> {
+        let mut buffer = Vec::new();
+        self.dump_with_comments(value, &mut buffer)?;
+        Ok(String::from_utf8(buffer)?)
+    }
+
+    /// Dump a CommentedValue to a writer, preserving comments
+    pub fn dump_with_comments<W: Write>(&self, value: &CommentedValue, writer: W) -> Result<()> {
+        self.emit_commented_value(value, writer)
+    }
+
+    /// Validate a YAML value against a schema
+    pub fn validate_with_schema(&self, value: &Value, schema: &Schema) -> Result<()> {
+        let validator = SchemaValidator::new(schema.clone());
+        validator.validate_with_report(value)
+    }
+
+    /// Load and validate YAML from a string with schema validation
+    pub fn load_str_with_schema(&self, input: &str, schema: &Schema) -> Result<Value> {
+        let value = self.load_str(input)?;
+        self.validate_with_schema(&value, schema)?;
+        Ok(value)
+    }
+
+    /// Load and validate all YAML documents from a string with schema validation
+    pub fn load_all_str_with_schema(&self, input: &str, schema: &Schema) -> Result<Vec<Value>> {
+        let values = self.load_all_str(input)?;
+        for value in &values {
+            self.validate_with_schema(value, schema)?;
+        }
+        Ok(values)
+    }
+
     // Placeholder implementations - will be replaced with actual parser/emitter
 
     fn parse_yaml_string(&self, input: &str) -> Result<Value> {
@@ -264,6 +312,34 @@ impl Yaml {
         // Use the proper emitter implementation
         let mut emitter = BasicEmitter::with_indent(self.config.indent.indent);
         emitter.emit(value, writer)?;
+        Ok(())
+    }
+
+    fn parse_yaml_string_with_comments(&self, input: &str) -> Result<CommentedValue> {
+        // Use the round-trip constructor for comment preservation
+        let mut constructor =
+            RoundTripConstructor::with_limits(input.to_string(), self.config.limits.clone());
+
+        match constructor.construct_commented()? {
+            Some(commented_value) => Ok(commented_value),
+            None => Ok(CommentedValue::new(Value::Null)),
+        }
+    }
+
+    fn emit_commented_value<W: Write>(&self, value: &CommentedValue, writer: W) -> Result<()> {
+        // Use the proper emitter implementation with comment support
+        let mut emitter = BasicEmitter::with_indent(self.config.indent.indent);
+        emitter.emit_commented_value_public(value, writer)?;
+        Ok(())
+    }
+
+    fn emit_yaml_documents<W: Write>(&self, values: &[Value], mut writer: W) -> Result<()> {
+        for (i, value) in values.iter().enumerate() {
+            if i > 0 {
+                writeln!(writer, "---")?;
+            }
+            self.emit_yaml_value(value, &mut writer)?;
+        }
         Ok(())
     }
 }

@@ -1987,7 +1987,6 @@ $RECYCLE.BIN/
 # Rust specific
 /target/
 **/*.rs.bk
-Cargo.lock
 
 # rust-yaml project specific
 /debug_*
@@ -1997,3 +1996,5 @@ test_*
 
 # Git hooks backup
 *.sample
+lcov.info
+build_rs_cov.profraw

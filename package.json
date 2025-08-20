@@ -1,6 +1,6 @@
 {
   "name": "rust-yaml",
-  "version": "1.0.0",
+  "version": "0.0.5",
   "private": true,
   "description": "A pure Rust YAML 1.2 implementation",
   "scripts": {

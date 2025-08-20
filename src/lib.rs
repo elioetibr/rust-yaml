@@ -75,6 +75,7 @@
 
 pub mod composer;
 pub mod composer_borrowed;
+pub mod composer_comments;
 pub mod composer_optimized;
 pub mod constructor;
 pub mod emitter;
@@ -86,6 +87,7 @@ pub mod profiling;
 pub mod representer;
 pub mod resolver;
 pub mod scanner;
+pub mod schema;
 pub mod serializer;
 #[cfg(feature = "async")]
 pub mod streaming_async;
@@ -102,6 +104,9 @@ pub use error::{Error, Result};
 pub use limits::{Limits, ResourceStats, ResourceTracker};
 pub use position::Position;
 pub use scanner::QuoteStyle;
+pub use schema::{
+    Schema, SchemaRule, SchemaValidator, ValidationError, ValidationResult, ValueType,
+};
 pub use value::{CommentedValue, Comments, IndentStyle, Style, Value};
 pub use value_borrowed::BorrowedValue;
 pub use yaml::{LoaderType, Yaml, YamlConfig};
@@ -110,8 +115,11 @@ pub use zero_copy_value::OptimizedValue;
 // Re-export commonly used types from components
 pub use composer::{BasicComposer, Composer};
 pub use composer_borrowed::{BorrowedComposer, ZeroCopyComposer};
+pub use composer_comments::CommentPreservingComposer;
 pub use composer_optimized::{OptimizedComposer, ReducedAllocComposer};
-pub use constructor::{Constructor, SafeConstructor};
+pub use constructor::{
+    CommentPreservingConstructor, Constructor, RoundTripConstructor, SafeConstructor,
+};
 pub use emitter::{BasicEmitter, Emitter};
 pub use parser::{
     BasicParser, Event, EventType, Parser, StreamingConfig, StreamingParser, StreamingStats,

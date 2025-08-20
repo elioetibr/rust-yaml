@@ -1,3 +1,5 @@
+//! Comparison and benchmarking of rust-yaml features
+
 use rust_yaml::{Limits, Value, Yaml, YamlConfig};
 use std::time::Instant;
 
