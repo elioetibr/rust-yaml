@@ -73,7 +73,7 @@ jobs:
         run: cargo bench
 
       - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@v1.22.1
         with:
           tool: "cargo"
           output-file-path: target/criterion/report/index.html

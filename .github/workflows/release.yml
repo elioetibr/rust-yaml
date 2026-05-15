@@ -98,7 +98,7 @@ jobs:
       - name: Crates.io Authentication
         id: auth
         if: github.event.inputs.dry_run != 'true'
-        uses: rust-lang/crates-io-auth-action@v1
+        uses: rust-lang/crates-io-auth-action@v1.0.4
 
       - name: Verify package
         run: |
