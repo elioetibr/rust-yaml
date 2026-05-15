@@ -44,13 +44,18 @@ runs:
           ${{ runner.os }}-cargo-tools-
 
     - name: Install cargo tools
-      if: steps.cache-cargo-tools.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        # Handle space-separated tools list
+        # Always verify each tool is present; install if missing.
+        # The cache may restore an empty/partial ~/.cargo/bin from a previously
+        # failed install, so relying on `cache-hit` alone can poison the job.
         for tool in ${{ inputs.tools }}; do
           if [ -n "$tool" ]; then
-            echo "Installing $tool..."
-            cargo install --locked "$tool" || echo "Failed to install $tool"
+            if [ -x "$HOME/.cargo/bin/$tool" ]; then
+              echo "$tool already installed, skipping"
+            else
+              echo "Installing $tool..."
+              cargo install --locked "$tool" || echo "Failed to install $tool"
+            fi
           fi
         done

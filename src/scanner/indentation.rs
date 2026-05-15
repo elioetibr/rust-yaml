@@ -131,16 +131,14 @@ impl IndentationManager {
     /// Validate indentation consistency
     pub fn validate_indentation(&self, column: usize, position: Position) -> Result<()> {
         match self.indentation_style {
-            IndentationStyle::Spaces(width) if width > 0 => {
-                if column % width != 0 {
-                    return Err(Error::scan(
-                        position,
-                        format!(
-                            "Inconsistent indentation: expected multiple of {} spaces, got {}",
-                            width, column
-                        ),
-                    ));
-                }
+            IndentationStyle::Spaces(width) if width > 0 && column % width != 0 => {
+                return Err(Error::scan(
+                    position,
+                    format!(
+                        "Inconsistent indentation: expected multiple of {} spaces, got {}",
+                        width, column
+                    ),
+                ));
             }
             IndentationStyle::Mixed => {
                 return Err(Error::scan(
