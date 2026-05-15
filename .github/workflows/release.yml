@@ -43,7 +43,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Extract version
         id: version
@@ -77,15 +77,15 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: github_app_auth
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.APP_ID }}
+          client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: "0"
 
@@ -163,15 +163,15 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: github_app_auth
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.APP_ID }}
+          client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: "0"
 
@@ -199,13 +199,13 @@ jobs:
           echo "Documentation built for version ${{ needs.validate.outputs.version }}" > target/doc/VERSION
 
       - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: target/doc
 
       - name: Deploy to GitHub Pages
         if: github.event.inputs.dry_run != 'true'
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
