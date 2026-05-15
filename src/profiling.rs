@@ -235,7 +235,7 @@ impl<T> ObjectPool<T> {
     }
 
     /// Get pool statistics
-    pub const fn stats(&self) -> (usize, usize) {
+    pub fn stats(&self) -> (usize, usize) {
         (self.objects.len(), self.objects.capacity())
     }
 }

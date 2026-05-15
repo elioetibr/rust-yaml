@@ -27,7 +27,7 @@ impl Comments {
     }
 
     /// Check if there are any comments
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.leading.is_empty() && self.trailing.is_none() && self.inner.is_empty()
     }
 
@@ -168,7 +168,7 @@ impl CommentedValue {
     }
 
     /// Check if this value has any comments
-    pub const fn has_comments(&self) -> bool {
+    pub fn has_comments(&self) -> bool {
         !self.comments.is_empty()
     }
 

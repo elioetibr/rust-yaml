@@ -309,17 +309,13 @@ impl BasicScanner {
         // NOT a block entry (`- `).  We must emit the sequence's BlockEnd
         // BEFORE popping the indent_stack so that the nesting order is
         // correct (sequence closes before its parent mapping).
-        let has_content = self.current_char.is_some()
-            && !matches!(self.current_char, Some('\n' | '\r' | '#'));
+        let has_content =
+            self.current_char.is_some() && !matches!(self.current_char, Some('\n' | '\r' | '#'));
         if has_content {
             let is_block_entry = self.current_char == Some('-')
-                && self
-                    .peek_char(1)
-                    .map_or(true, |c| c.is_whitespace());
+                && self.peek_char(1).map_or(true, |c| c.is_whitespace());
             while let Some(&seq_indent) = self.compact_sequence_indents.last() {
-                if indent < seq_indent
-                    || (indent == seq_indent && !is_block_entry)
-                {
+                if indent < seq_indent || (indent == seq_indent && !is_block_entry) {
                     self.compact_sequence_indents.pop();
                     self.tokens
                         .push(Token::simple(TokenType::BlockEnd, line_start_pos));

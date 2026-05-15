@@ -300,7 +300,7 @@ mod test_error {
     fn test_all_error_types() {
         let pos = Position::new();
 
-        let errors = vec![
+        let errors = [
             Error::parse(pos.clone(), "parse error"),
             Error::scan(pos.clone(), "scan error"),
             Error::construction(pos.clone(), "construction error"),

@@ -46,9 +46,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match yaml.load_all_str(&content) {
             Ok(value) => match yaml.dump_all_str(&value) {
                 Ok(serialized) => {
-                    std::fs::write(&output_path, &serialized).map_err(|e| {
-                        format!("Failed to write {}: {}", output_path.display(), e)
-                    })?;
+                    std::fs::write(&output_path, &serialized)
+                        .map_err(|e| format!("Failed to write {}: {}", output_path.display(), e))?;
                     println!("    Parsed OK -> {}", output_path.display());
                 }
                 Err(e) => {

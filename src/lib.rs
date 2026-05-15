@@ -71,7 +71,6 @@
 #![allow(clippy::manual_flatten)]
 #![allow(unused_variables)]
 #![allow(clippy::while_let_on_iterator)]
-#![allow(clippy::collapsible_if)]
 
 pub mod composer;
 pub mod composer_borrowed;

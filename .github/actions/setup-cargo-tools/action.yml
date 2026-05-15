@@ -51,6 +51,6 @@ runs:
         for tool in ${{ inputs.tools }}; do
           if [ -n "$tool" ]; then
             echo "Installing $tool..."
-            cargo install "$tool" || echo "Failed to install $tool"
+            cargo install --locked "$tool" || echo "Failed to install $tool"
           fi
         done

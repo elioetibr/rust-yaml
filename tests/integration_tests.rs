@@ -422,19 +422,13 @@ metadata:
             let category = meta
                 .get(&Value::String("category".to_string()))
                 .expect("missing 'category' key — mapping was corrupted");
-            assert_eq!(
-                *category,
-                Value::String("core".to_string()),
-            );
+            assert_eq!(*category, Value::String("core".to_string()),);
 
             // description must still be correct
             let description = meta
                 .get(&Value::String("description".to_string()))
                 .expect("missing 'description' key — mapping was corrupted");
-            assert_eq!(
-                *description,
-                Value::String("A package".to_string()),
-            );
+            assert_eq!(*description, Value::String("A package".to_string()),);
         } else {
             panic!("Expected metadata to be a mapping");
         }
@@ -535,7 +529,8 @@ requirements: []
             "missing top-level 'images' — it was swallowed into the compact sequence"
         );
         assert!(
-            root.get(&Value::String("requirements".to_string())).is_some(),
+            root.get(&Value::String("requirements".to_string()))
+                .is_some(),
             "missing top-level 'requirements'"
         );
     } else {
@@ -685,11 +680,16 @@ fn test_nested_compact_sequences() {
     // additionalPrinterColumns: 2-element sequence (NOT swallowing name, schema, etc.)
     let cols = match v1.get(&Value::String("additionalPrinterColumns".into())) {
         Some(Value::Sequence(s)) => s,
-        other => panic!("additionalPrinterColumns should be a sequence, got {:?}", other),
+        other => panic!(
+            "additionalPrinterColumns should be a sequence, got {:?}",
+            other
+        ),
     };
     assert_eq!(
-        cols.len(), 2,
-        "additionalPrinterColumns should have 2 items, got {:?}", cols
+        cols.len(),
+        2,
+        "additionalPrinterColumns should have 2 items, got {:?}",
+        cols
     );
 
     // name, schema, served, storage must be sibling keys
@@ -983,15 +983,33 @@ fn test_mapping_keys_after_nested_compact_sequences() {
 
     assert_eq!(versions.len(), 1);
 
-    let item = versions[0].as_mapping().expect("versions[0] must be a mapping");
-    assert!(item.contains_key(&Value::String("served".into())), "served must be inside the sequence item");
-    assert!(item.contains_key(&Value::String("storage".into())), "storage must be inside the sequence item");
+    let item = versions[0]
+        .as_mapping()
+        .expect("versions[0] must be a mapping");
+    assert!(
+        item.contains_key(&Value::String("served".into())),
+        "served must be inside the sequence item"
+    );
+    assert!(
+        item.contains_key(&Value::String("storage".into())),
+        "storage must be inside the sequence item"
+    );
 
     let top = parsed.as_mapping().expect("top level must be a mapping");
-    assert!(!top.contains_key(&Value::String("served".into())), "served must NOT be at top level");
-    assert!(!top.contains_key(&Value::String("storage".into())), "storage must NOT be at top level");
+    assert!(
+        !top.contains_key(&Value::String("served".into())),
+        "served must NOT be at top level"
+    );
+    assert!(
+        !top.contains_key(&Value::String("storage".into())),
+        "storage must NOT be at top level"
+    );
 
     let serialized = yaml.dump_str(&parsed).expect("Failed to serialize");
     let reparsed = yaml.load_str(&serialized).expect("Failed to re-parse");
-    assert_eq!(parsed, reparsed, "Round-trip must be stable.\nSerialized:\n{}", serialized);
+    assert_eq!(
+        parsed, reparsed,
+        "Round-trip must be stable.\nSerialized:\n{}",
+        serialized
+    );
 }

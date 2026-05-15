@@ -10,9 +10,10 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 
 /// A zero-copy YAML value that borrows data where possible
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum BorrowedValue<'a> {
     /// Null value
+    #[default]
     Null,
     /// Boolean value
     Bool(bool),
@@ -235,12 +236,6 @@ impl<'a> BorrowedValue<'a> {
             Self::String(Cow::Borrowed(s)) => Self::String(Cow::Borrowed(s)),
             _ => self.clone(),
         }
-    }
-}
-
-impl<'a> Default for BorrowedValue<'a> {
-    fn default() -> Self {
-        Self::Null
     }
 }
 
