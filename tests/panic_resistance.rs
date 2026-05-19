@@ -42,12 +42,17 @@ const MALFORMED_INPUTS: &[(&str, &str)] = &[
 fn malformed_inputs_never_panic() {
     let yaml = Yaml::new();
     for (label, input) in MALFORMED_INPUTS {
-        let result = catch_unwind(AssertUnwindSafe(|| yaml.load_str(input)));
+        // Discard the load result inside the closure: we only care
+        // whether the call returned at all, not what it returned.
+        // Returning `Result<Value, Error>` from the closure trips
+        // `clippy::result-large-err` (Rust 1.95+) because `Error` is
+        // ~160 bytes.
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            let _ = yaml.load_str(input);
+        }));
         assert!(
             result.is_ok(),
             "input '{label}' (`{input:?}`) panicked — must return Err instead"
         );
-        // We don't care whether it Ok'd or Err'd, only that it didn't panic.
-        let _ = result;
     }
 }
