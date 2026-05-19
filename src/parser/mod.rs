@@ -1100,7 +1100,12 @@ impl BasicParser {
                         ));
                     }
                     self.events.push(Event::mapping_end(token.start_position));
-                    self.state = self.state_stack.pop().unwrap();
+                    self.state = self.state_stack.pop().ok_or_else(|| {
+                        Error::parse(
+                            token.start_position,
+                            "internal: parser state stack underflow at implicit flow mapping end (in flow sequence)",
+                        )
+                    })?;
                     self.implicit_flow_pair_depth -= 1;
                 }
                 self.events.push(Event::sequence_end(token.start_position));
@@ -1752,7 +1757,12 @@ impl BasicParser {
                             // children are even (complete pairs).
                             if !innermost_mapping_has_odd_children(&self.events) {
                                 self.events.push(Event::mapping_end(token.start_position));
-                                self.state = self.state_stack.pop().unwrap();
+                                self.state = self.state_stack.pop().ok_or_else(|| {
+                                    Error::parse(
+                                        token.start_position,
+                                        "internal: parser state stack underflow closing inline-wrapped key mapping",
+                                    )
+                                })?;
                                 self.inline_wrap_column = None;
                                 self.just_closed_inline_wrap = true;
                             }
@@ -2133,7 +2143,12 @@ impl BasicParser {
                         ));
                     }
                     self.events.push(Event::mapping_end(token.start_position));
-                    self.state = self.state_stack.pop().unwrap();
+                    self.state = self.state_stack.pop().ok_or_else(|| {
+                        Error::parse(
+                            token.start_position,
+                            "internal: parser state stack underflow at implicit flow mapping end (in flow mapping)",
+                        )
+                    })?;
                     self.implicit_flow_pair_depth -= 1;
                 }
             }
