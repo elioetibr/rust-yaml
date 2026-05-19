@@ -2,6 +2,13 @@
 
 use rust_yaml::{Limits, LoaderType, Yaml, YamlConfig};
 
+fn permissive_with_alias_cap(cap: usize) -> Limits {
+    Limits {
+        max_total_alias_nodes: cap,
+        ..Limits::permissive()
+    }
+}
+
 #[test]
 fn test_max_depth_limit() {
     // Create a YAML with excessive nesting
@@ -298,4 +305,69 @@ fn test_permissive_config() {
     // This may or may not succeed depending on implementation details
     // but should not panic
     let _ = result;
+}
+
+#[test]
+fn test_cumulative_alias_materialization_cap() {
+    // Regression for #15: cumulative alias node materialization must be
+    // capped independently of max_complexity_score so wide fan-out cannot
+    // allocate millions of nodes before any limit fires.
+    //
+    // *a has complexity 1 (seq) + 10 (len) + 10 = 21 nodes. With 20 sibling
+    // expansions, the composer must materialize ~420 alias-expanded nodes.
+    // A tight max_total_alias_nodes must reject this even when every other
+    // limit is effectively unlimited.
+    let yaml_str = r#"
+a: &a [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+b: [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a]
+"#;
+
+    let config = YamlConfig {
+        limits: permissive_with_alias_cap(100),
+        ..YamlConfig::default()
+    };
+
+    let yaml = Yaml::with_config(config);
+    let result = yaml.load_str(yaml_str);
+
+    assert!(
+        result.is_err(),
+        "expected cumulative alias materialization cap to reject the document"
+    );
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("alias") || msg.contains("materializ") || msg.contains("limit"),
+        "expected materialization-cap error message, got: {msg}"
+    );
+}
+
+#[test]
+fn test_cumulative_alias_materialization_cap_comment_preserving() {
+    // Same regression for #15 via load_str_with_comments, which routes
+    // through CommentPreservingComposer instead of BasicComposer. The
+    // cap must apply uniformly across all public load paths.
+    let yaml_str = r#"
+a: &a [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+b: [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a]
+"#;
+
+    let config = YamlConfig {
+        limits: permissive_with_alias_cap(100),
+        loader_type: LoaderType::RoundTrip,
+        preserve_comments: true,
+        ..YamlConfig::default()
+    };
+
+    let yaml = Yaml::with_config(config);
+    let result = yaml.load_str_with_comments(yaml_str);
+
+    assert!(
+        result.is_err(),
+        "expected materialization cap to fire through the comment-preserving path"
+    );
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("alias") || msg.contains("materializ") || msg.contains("limit"),
+        "expected materialization-cap error message, got: {msg}"
+    );
 }

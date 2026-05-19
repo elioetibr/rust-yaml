@@ -286,6 +286,7 @@ fn bench_memory_usage(c: &mut Criterion) {
                             max_alias_depth: 100,
                             max_collection_size: 100000,
                             max_complexity_score: 1_000_000,
+                            max_total_alias_nodes: 1_000_000,
                             timeout: None,
                         },
                         ..Default::default()

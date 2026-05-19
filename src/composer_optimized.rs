@@ -12,33 +12,30 @@ use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Calculate the maximum nesting depth of an optimized value structure
+/// Iterative DFS — see [`crate::composer::calculate_structure_depth`] (#16).
 fn calculate_optimized_structure_depth(value: &OptimizedValue) -> usize {
-    match value {
-        OptimizedValue::Sequence(seq) => {
-            if seq.is_empty() {
-                1
-            } else {
-                1 + seq
-                    .iter()
-                    .map(calculate_optimized_structure_depth)
-                    .max()
-                    .unwrap_or(0)
-            }
+    let mut max_depth: usize = 1;
+    let mut stack: Vec<(&OptimizedValue, usize)> = vec![(value, 1)];
+    while let Some((node, depth)) = stack.pop() {
+        if depth > max_depth {
+            max_depth = depth;
         }
-        OptimizedValue::Mapping(map) => {
-            if map.is_empty() {
-                1
-            } else {
-                1 + map
-                    .values()
-                    .map(calculate_optimized_structure_depth)
-                    .max()
-                    .unwrap_or(0)
+        let next = depth.saturating_add(1);
+        match node {
+            OptimizedValue::Sequence(seq) => {
+                for item in seq.iter() {
+                    stack.push((item, next));
+                }
             }
+            OptimizedValue::Mapping(map) => {
+                for (_, v) in map.iter() {
+                    stack.push((v, next));
+                }
+            }
+            _ => {}
         }
-        _ => 1, // Scalars have depth 1
     }
+    max_depth
 }
 
 /// Trait for optimized composers
@@ -198,8 +195,12 @@ impl ReducedAllocComposer {
 
                         // Rc clone is very cheap - just increments reference count
                         let cloned = (**value).clone();
+                        let nodes = calculate_complexity(&cloned)?;
+                        // Cap cumulative alias materialization BEFORE
+                        // committing the clone (#15 billion-laughs gap).
                         self.resource_tracker
-                            .add_complexity(&self.limits, calculate_complexity(&cloned)?)?;
+                            .add_alias_materialization(&self.limits, nodes)?;
+                        self.resource_tracker.add_complexity(&self.limits, nodes)?;
                         Ok(Some(cloned))
                     }
                     None => Err(Error::construction(
@@ -422,28 +423,29 @@ impl OptimizedComposer for ReducedAllocComposer {
     }
 }
 
-/// Calculate complexity score for a value
+/// Calculate complexity score for a value. Iterative for stack safety (#16).
 fn calculate_complexity(value: &OptimizedValue) -> Result<usize> {
-    let mut complexity = 1usize;
-
-    match value {
-        OptimizedValue::Sequence(seq) => {
-            complexity = complexity.saturating_add(seq.len());
-            for item in seq.iter() {
-                complexity = complexity.saturating_add(calculate_complexity(item)?);
+    let mut total: usize = 0;
+    let mut stack: Vec<&OptimizedValue> = vec![value];
+    while let Some(node) = stack.pop() {
+        match node {
+            OptimizedValue::Sequence(seq) => {
+                total = total.saturating_add(1usize.saturating_add(seq.len()));
+                for item in seq.iter() {
+                    stack.push(item);
+                }
             }
-        }
-        OptimizedValue::Mapping(map) => {
-            complexity = complexity.saturating_add(map.len().saturating_mul(2));
-            for (key, val) in map.iter() {
-                complexity = complexity.saturating_add(calculate_complexity(key)?);
-                complexity = complexity.saturating_add(calculate_complexity(val)?);
+            OptimizedValue::Mapping(map) => {
+                total = total.saturating_add(1usize.saturating_add(map.len().saturating_mul(2)));
+                for (k, v) in map.iter() {
+                    stack.push(k);
+                    stack.push(v);
+                }
             }
+            _ => total = total.saturating_add(1),
         }
-        _ => {} // Scalars have complexity 1
     }
-
-    Ok(complexity)
+    Ok(total)
 }
 
 #[cfg(test)]

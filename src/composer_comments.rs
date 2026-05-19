@@ -2,7 +2,8 @@
 
 use crate::{
     BasicParser, BasicScanner, CommentedValue, Comments, Error, Limits, Parser, Position,
-    ResourceTracker, Result, Scanner, Style, TokenType, Value, parser::EventType,
+    ResourceTracker, Result, Scanner, Style, TokenType, Value,
+    composer::calculate_value_complexity, parser::EventType,
 };
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -325,10 +326,30 @@ impl CommentPreservingComposer {
             ));
         }
 
+        // Cap alias expansion depth (parity with BasicComposer).
+        if self.alias_expansion_stack.len() >= self.limits.max_alias_depth {
+            return Err(Error::parse(
+                position,
+                format!(
+                    "Maximum alias expansion depth {} exceeded",
+                    self.limits.max_alias_depth
+                ),
+            ));
+        }
+
         self.alias_expansion_stack.push(anchor.clone());
 
         let result = match self.anchors.get(&anchor) {
-            Some(value) => Ok(Some(value.clone())),
+            Some(value) => {
+                // Cap cumulative alias materialization BEFORE the clone —
+                // closes the billion-laughs gap on the comment-preserving
+                // load path (#15).
+                let nodes = calculate_value_complexity(&value.value)?;
+                self.resource_tracker
+                    .add_alias_materialization(&self.limits, nodes)?;
+                self.resource_tracker.add_complexity(&self.limits, nodes)?;
+                Ok(Some(value.clone()))
+            }
             None => Err(Error::parse(
                 position,
                 format!("Unknown anchor '{}'", anchor),

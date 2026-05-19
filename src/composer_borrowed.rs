@@ -12,32 +12,56 @@ use indexmap::IndexMap;
 use std::collections::HashMap;
 
 /// Calculate the maximum nesting depth of a borrowed value structure
+/// Iterative DFS — see [`crate::composer::calculate_structure_depth`] (#16).
 fn calculate_borrowed_structure_depth(value: &BorrowedValue) -> usize {
-    match value {
-        BorrowedValue::Sequence(seq) => {
-            if seq.is_empty() {
-                1
-            } else {
-                1 + seq
-                    .iter()
-                    .map(calculate_borrowed_structure_depth)
-                    .max()
-                    .unwrap_or(0)
-            }
+    let mut max_depth: usize = 1;
+    let mut stack: Vec<(&BorrowedValue, usize)> = vec![(value, 1)];
+    while let Some((node, depth)) = stack.pop() {
+        if depth > max_depth {
+            max_depth = depth;
         }
-        BorrowedValue::Mapping(map) => {
-            if map.is_empty() {
-                1
-            } else {
-                1 + map
-                    .values()
-                    .map(calculate_borrowed_structure_depth)
-                    .max()
-                    .unwrap_or(0)
+        let next = depth.saturating_add(1);
+        match node {
+            BorrowedValue::Sequence(seq) => {
+                for item in seq {
+                    stack.push((item, next));
+                }
             }
+            BorrowedValue::Mapping(map) => {
+                for (_, v) in map {
+                    stack.push((v, next));
+                }
+            }
+            _ => {}
         }
-        _ => 1, // Scalars have depth 1
     }
+    max_depth
+}
+
+/// Cost of materialising a borrowed value, used to charge alias expansion
+/// against `max_total_alias_nodes` (#15). Iterative for stack safety (#16).
+fn calculate_borrowed_complexity(value: &BorrowedValue) -> usize {
+    let mut total: usize = 0;
+    let mut stack: Vec<&BorrowedValue> = vec![value];
+    while let Some(node) = stack.pop() {
+        match node {
+            BorrowedValue::Sequence(seq) => {
+                total = total.saturating_add(1usize.saturating_add(seq.len()));
+                for item in seq {
+                    stack.push(item);
+                }
+            }
+            BorrowedValue::Mapping(map) => {
+                total = total.saturating_add(1usize.saturating_add(map.len().saturating_mul(2)));
+                for (k, v) in map {
+                    stack.push(k);
+                    stack.push(v);
+                }
+            }
+            _ => total = total.saturating_add(1),
+        }
+    }
+    total
 }
 
 /// Trait for zero-copy YAML composers
@@ -200,7 +224,12 @@ impl<'a> ZeroCopyComposer<'a> {
                             ));
                         }
 
-                        // Only clone if we absolutely need to
+                        // Cap cumulative alias materialization BEFORE
+                        // committing the clone (#15 billion-laughs gap).
+                        let nodes = calculate_borrowed_complexity(value);
+                        self.resource_tracker
+                            .add_alias_materialization(&self.limits, nodes)?;
+                        self.resource_tracker.add_complexity(&self.limits, nodes)?;
                         Ok(Some(value.clone_if_needed()))
                     }
                     None => Err(Error::construction(

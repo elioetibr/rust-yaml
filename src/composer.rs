@@ -11,53 +11,62 @@ use crate::{
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
-/// Calculate complexity score for a value (for resource limiting)
-fn calculate_value_complexity(value: &Value) -> Result<usize> {
-    let mut complexity = 1usize;
-
-    match value {
-        Value::Sequence(seq) => {
-            complexity = complexity.saturating_add(seq.len());
-            for item in seq {
-                complexity = complexity.saturating_add(calculate_value_complexity(item)?);
+/// Calculate complexity score for a value (for resource limiting).
+///
+/// Iterative on purpose: pathological documents can produce arbitrarily
+/// deep `Value` trees (e.g. via anchors), and a recursive implementation
+/// stack-overflows long before any in-process limit fires (#16).
+pub(crate) fn calculate_value_complexity(value: &Value) -> Result<usize> {
+    let mut total: usize = 0;
+    let mut stack: Vec<&Value> = vec![value];
+    while let Some(node) = stack.pop() {
+        match node {
+            Value::Sequence(seq) => {
+                total = total.saturating_add(1usize.saturating_add(seq.len()));
+                for item in seq {
+                    stack.push(item);
+                }
             }
-        }
-        Value::Mapping(map) => {
-            complexity = complexity.saturating_add(map.len().saturating_mul(2));
-            for (key, val) in map {
-                complexity = complexity.saturating_add(calculate_value_complexity(key)?);
-                complexity = complexity.saturating_add(calculate_value_complexity(val)?);
+            Value::Mapping(map) => {
+                total = total.saturating_add(1usize.saturating_add(map.len().saturating_mul(2)));
+                for (k, v) in map {
+                    stack.push(k);
+                    stack.push(v);
+                }
             }
+            _ => total = total.saturating_add(1),
         }
-        _ => {} // Scalars have complexity 1
     }
-
-    Ok(complexity)
+    Ok(total)
 }
 
-/// Calculate the maximum nesting depth of a value structure
+/// Calculate the maximum nesting depth of a value structure.
+///
+/// Iterative DFS with an explicit work-list, for the same stack-safety
+/// reason as [`calculate_value_complexity`] (#16).
 fn calculate_structure_depth(value: &Value) -> usize {
-    match value {
-        Value::Sequence(seq) => {
-            if seq.is_empty() {
-                1
-            } else {
-                1 + seq.iter().map(calculate_structure_depth).max().unwrap_or(0)
-            }
+    let mut max_depth: usize = 1;
+    let mut stack: Vec<(&Value, usize)> = vec![(value, 1)];
+    while let Some((node, depth)) = stack.pop() {
+        if depth > max_depth {
+            max_depth = depth;
         }
-        Value::Mapping(map) => {
-            if map.is_empty() {
-                1
-            } else {
-                1 + map
-                    .values()
-                    .map(calculate_structure_depth)
-                    .max()
-                    .unwrap_or(0)
+        let next = depth.saturating_add(1);
+        match node {
+            Value::Sequence(seq) => {
+                for item in seq {
+                    stack.push((item, next));
+                }
             }
+            Value::Mapping(map) => {
+                for (_, v) in map {
+                    stack.push((v, next));
+                }
+            }
+            _ => {}
         }
-        _ => 1, // Scalars have depth 1
     }
+    max_depth
 }
 
 /// Trait for YAML composers that convert event streams to node structures
@@ -274,9 +283,14 @@ impl BasicComposer {
                             ));
                         }
 
-                        // Add complexity score for alias expansion
+                        let nodes = calculate_value_complexity(value)?;
+                        // Cap cumulative alias materialization BEFORE the
+                        // clone — closes the billion-laughs gap where wide
+                        // fan-out allocates millions of nodes before
+                        // max_complexity_score fires (#15).
                         self.resource_tracker
-                            .add_complexity(&self.limits, calculate_value_complexity(value)?)?;
+                            .add_alias_materialization(&self.limits, nodes)?;
+                        self.resource_tracker.add_complexity(&self.limits, nodes)?;
                         Ok(Some(value.clone()))
                     }
                     None => Err(Error::construction(
@@ -555,6 +569,56 @@ impl Default for BasicComposer {
 mod tests {
     use super::*;
     use indexmap::IndexMap;
+
+    /// Build a sequence-of-sequence chain `depth` levels deep without using
+    /// the parser, so we can stress the complexity/depth helpers past any
+    /// `max_depth` the parser would normally enforce.
+    fn build_deep_sequence(depth: usize) -> Value {
+        let mut v = Value::Int(1);
+        for _ in 0..depth {
+            v = Value::Sequence(vec![v]);
+        }
+        v
+    }
+
+    /// Tear down a deep Value iteratively so the test's cleanup phase
+    /// doesn't stack-overflow inside `Value::drop` / `Vec::drop`.
+    /// This is only needed because `Value`'s default `Drop` is recursive.
+    fn drop_deep(mut v: Value) {
+        let mut stack: Vec<Value> = Vec::new();
+        stack.push(std::mem::replace(&mut v, Value::Null));
+        while let Some(node) = stack.pop() {
+            if let Value::Sequence(seq) = node {
+                for item in seq {
+                    stack.push(item);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn iterative_complexity_handles_100k_deep_value() {
+        // Regression for #16: a recursive implementation would
+        // stack-overflow long before reaching this depth (Rust's default
+        // 8 MB stack at ~120 bytes/frame ≈ 65 k frames). The iterative
+        // implementation must return a sane count without panicking.
+        let deep = build_deep_sequence(100_000);
+        let complexity = calculate_value_complexity(&deep).expect("must not error");
+        // Each Sequence contributes 1 (self) + 1 (len), plus the inner
+        // scalar contributes 1. So 100_000 * 2 + 1 = 200_001.
+        assert_eq!(complexity, 200_001);
+        drop_deep(deep);
+    }
+
+    #[test]
+    fn iterative_structure_depth_handles_100k_deep_value() {
+        // Same regression for calculate_structure_depth (#16).
+        let deep = build_deep_sequence(100_000);
+        let depth = calculate_structure_depth(&deep);
+        // 100_000 wrapping sequences + the inner scalar leaf = 100_001.
+        assert_eq!(depth, 100_001);
+        drop_deep(deep);
+    }
 
     #[test]
     fn test_check_document() {

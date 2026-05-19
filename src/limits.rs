@@ -20,6 +20,12 @@ pub struct Limits {
     pub max_collection_size: usize,
     /// Maximum complexity score (calculated based on structure)
     pub max_complexity_score: usize,
+    /// Maximum total number of nodes materialized by alias expansion in one
+    /// document. Closes the billion-laughs gap where wide alias fan-out
+    /// allocates millions of nodes before `max_complexity_score` fires.
+    /// The check runs *before* each alias clone so memory cannot blow up
+    /// between the check and the materialization.
+    pub max_total_alias_nodes: usize,
     /// Timeout for parsing operations
     pub timeout: Option<Duration>,
 }
@@ -34,6 +40,7 @@ impl Default for Limits {
             max_alias_depth: 100,
             max_collection_size: 1_000_000,
             max_complexity_score: 1_000_000,
+            max_total_alias_nodes: 100_000,
             timeout: None,
         }
     }
@@ -50,6 +57,7 @@ impl Limits {
             max_alias_depth: 5,
             max_collection_size: 10_000,
             max_complexity_score: 10_000,
+            max_total_alias_nodes: 1_000,
             timeout: Some(Duration::from_secs(5)),
         }
     }
@@ -64,6 +72,7 @@ impl Limits {
             max_alias_depth: 1000,
             max_collection_size: 10_000_000,
             max_complexity_score: 100_000_000,
+            max_total_alias_nodes: 10_000_000,
             timeout: None,
         }
     }
@@ -78,6 +87,7 @@ impl Limits {
             max_alias_depth: usize::MAX,
             max_collection_size: usize::MAX,
             max_complexity_score: usize::MAX,
+            max_total_alias_nodes: usize::MAX,
             timeout: None,
         }
     }
@@ -93,6 +103,10 @@ pub struct ResourceTracker {
     alias_depth: usize,
     complexity_score: usize,
     collection_items: usize,
+    /// Cumulative count of nodes materialized via alias expansion in the
+    /// current document. Guards the billion-laughs gap where
+    /// `complexity_score` alone trips only *after* substantial allocation.
+    total_alias_nodes: usize,
 }
 
 impl ResourceTracker {
@@ -188,6 +202,28 @@ impl ResourceTracker {
             return Err(Error::limit_exceeded(format!(
                 "Maximum complexity score {} exceeded",
                 limits.max_complexity_score
+            )));
+        }
+        Ok(())
+    }
+
+    /// Charges an alias-expansion materialization against the cumulative
+    /// node-count budget. Call this *before* cloning the anchored value so
+    /// the check fires before memory is committed.
+    ///
+    /// `nodes` is the node count of the resolved value (e.g.
+    /// `calculate_value_complexity`).
+    ///
+    /// # Errors
+    /// Returns an error if the cumulative materialization would exceed
+    /// `limits.max_total_alias_nodes`.
+    pub fn add_alias_materialization(&mut self, limits: &Limits, nodes: usize) -> Result<()> {
+        self.total_alias_nodes = self.total_alias_nodes.saturating_add(nodes);
+        if self.total_alias_nodes > limits.max_total_alias_nodes {
+            return Err(Error::limit_exceeded(format!(
+                "Maximum cumulative alias materialization {} exceeded \
+                 (attempted to materialize {nodes} more nodes)",
+                limits.max_total_alias_nodes
             )));
         }
         Ok(())
