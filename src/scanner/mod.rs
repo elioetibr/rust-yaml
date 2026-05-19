@@ -2017,8 +2017,13 @@ impl BasicScanner {
                     let pos = self.position;
                     self.advance();
 
-                    // Check if we need to start a new block sequence
-                    let last_indent = *self.indent_stack.last().unwrap();
+                    // Check if we need to start a new block sequence.
+                    // `unwrap_or(0)` mirrors the pattern in
+                    // src/scanner/indentation.rs and is safer than
+                    // `.unwrap()` here: an error-recovery pop in another
+                    // path could otherwise leave the stack empty and
+                    // panic on crafted input (#18).
+                    let last_indent = self.indent_stack.last().copied().unwrap_or(0);
 
                     // If a compact sequence (opened from `? - x` or
                     // similar) is already active at this dash's column,
@@ -3245,7 +3250,10 @@ impl BasicScanner {
     /// start of an implicit key and no mapping is yet active at this
     /// indent level. Shared by plain and quoted scalar dispatch.
     fn maybe_open_block_mapping_for_key(&mut self) -> Result<()> {
-        let last_indent = *self.indent_stack.last().unwrap();
+        // Use `unwrap_or(0)` for parity with the indentation module's
+        // helpers — defends against error-recovery pop paths that could
+        // leave the stack momentarily empty (#18).
+        let last_indent = self.indent_stack.last().copied().unwrap_or(0);
         let should_start_new_mapping = if self.current_indent > last_indent {
             true
         } else if self.current_indent == last_indent {
