@@ -232,7 +232,14 @@ impl BasicScanner {
     /// Create a new scanner with eager scanning and comment preservation
     pub fn new_eager_with_comments(input: String) -> Self {
         let mut scanner = Self::new_with_comments(input);
-        scanner.scan_all_tokens().unwrap_or(());
+        // Mirror `new_eager_with_limits`: record scanning errors instead
+        // of discarding them (#19). Previously this used
+        // `unwrap_or(())`, silently truncating the token stream and
+        // returning a scanner whose `has_scanning_error()` reported
+        // false — silent data loss for comment-preserving callers.
+        if let Err(error) = scanner.scan_all_tokens() {
+            scanner.scanning_error = Some(error);
+        }
         scanner
     }
 
@@ -3552,6 +3559,30 @@ impl Scanner for BasicScanner {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression for #19. Reaching this constructor with malformed input
+    /// must record the scanning error so callers can detect failure via
+    /// `has_scanning_error()`. Previously the result of `scan_all_tokens`
+    /// was dropped, silently truncating the token stream.
+    #[test]
+    fn new_eager_with_comments_propagates_scanning_errors() {
+        // A doc-start marker inside an unterminated quoted scalar is a
+        // scanning error (see `Error::scan(... "inside quoted scalar")`).
+        // First confirm the non-comment constructor reports it — that
+        // anchors the parity check.
+        let input = "\"abc\n---\n";
+        let plain = BasicScanner::new_eager(input.to_string());
+        assert!(
+            plain.has_scanning_error(),
+            "precondition: malformed input must produce a scanning error via new_eager"
+        );
+
+        let with_comments = BasicScanner::new_eager_with_comments(input.to_string());
+        assert!(
+            with_comments.has_scanning_error(),
+            "new_eager_with_comments must NOT silently swallow scanner errors"
+        );
+    }
 
     /// Drive the parser pipeline on `input` in a dedicated thread, returning
     /// `None` if it doesn't finish within `Duration::from_secs(2)`. Used by
