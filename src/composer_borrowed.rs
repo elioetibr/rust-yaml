@@ -451,4 +451,180 @@ mod tests {
             panic!("Expected mapping");
         }
     }
+
+    // ---- iterative helpers (#16) ----
+
+    #[test]
+    fn borrowed_structure_depth_scalar_is_one() {
+        assert_eq!(calculate_borrowed_structure_depth(&BorrowedValue::Null), 1);
+        assert_eq!(
+            calculate_borrowed_structure_depth(&BorrowedValue::Int(7)),
+            1
+        );
+        assert_eq!(
+            calculate_borrowed_structure_depth(&BorrowedValue::owned_string("x".into())),
+            1
+        );
+    }
+
+    #[test]
+    fn borrowed_structure_depth_empty_collections_is_one() {
+        assert_eq!(
+            calculate_borrowed_structure_depth(&BorrowedValue::Sequence(Vec::new())),
+            1
+        );
+        assert_eq!(
+            calculate_borrowed_structure_depth(&BorrowedValue::Mapping(IndexMap::new())),
+            1
+        );
+    }
+
+    #[test]
+    fn borrowed_structure_depth_nested_sequence() {
+        // [[[1]]] → depth 4 (outer seq + 2 nested seqs + scalar)
+        let inner = BorrowedValue::Sequence(vec![BorrowedValue::Int(1)]);
+        let mid = BorrowedValue::Sequence(vec![inner]);
+        let outer = BorrowedValue::Sequence(vec![mid]);
+        assert_eq!(calculate_borrowed_structure_depth(&outer), 4);
+    }
+
+    #[test]
+    fn borrowed_structure_depth_nested_mapping() {
+        // { k: { k: 1 } } → depth 3
+        let mut inner = IndexMap::new();
+        inner.insert(
+            BorrowedValue::owned_string("k".into()),
+            BorrowedValue::Int(1),
+        );
+        let mut outer = IndexMap::new();
+        outer.insert(
+            BorrowedValue::owned_string("k".into()),
+            BorrowedValue::Mapping(inner),
+        );
+        assert_eq!(
+            calculate_borrowed_structure_depth(&BorrowedValue::Mapping(outer)),
+            3
+        );
+    }
+
+    #[test]
+    fn borrowed_complexity_scalar_is_one() {
+        assert_eq!(calculate_borrowed_complexity(&BorrowedValue::Null), 1);
+        assert_eq!(calculate_borrowed_complexity(&BorrowedValue::Bool(true)), 1);
+        assert_eq!(calculate_borrowed_complexity(&BorrowedValue::Int(42)), 1);
+        assert_eq!(
+            calculate_borrowed_complexity(&BorrowedValue::owned_string("hi".into())),
+            1
+        );
+    }
+
+    #[test]
+    fn borrowed_complexity_sequence_charges_len_plus_one_plus_children() {
+        // Sequence with 3 scalar children: 1 (seq) + 3 (len) + 3*1 (children) = 7
+        let seq = BorrowedValue::Sequence(vec![
+            BorrowedValue::Int(1),
+            BorrowedValue::Int(2),
+            BorrowedValue::Int(3),
+        ]);
+        assert_eq!(calculate_borrowed_complexity(&seq), 7);
+    }
+
+    #[test]
+    fn borrowed_complexity_mapping_charges_two_per_entry_plus_one_plus_children() {
+        // Mapping with 2 entries (k1: v1, k2: v2): 1 + 2*2 + 4*1 = 9
+        let mut map = IndexMap::new();
+        map.insert(
+            BorrowedValue::owned_string("k1".into()),
+            BorrowedValue::Int(1),
+        );
+        map.insert(
+            BorrowedValue::owned_string("k2".into()),
+            BorrowedValue::Int(2),
+        );
+        assert_eq!(
+            calculate_borrowed_complexity(&BorrowedValue::Mapping(map)),
+            9
+        );
+    }
+
+    #[test]
+    fn borrowed_structure_depth_is_stack_safe_for_deep_input() {
+        // 100k-deep sequence would blow the stack if the helper were recursive.
+        let mut v = BorrowedValue::Int(0);
+        for _ in 0..100_000 {
+            v = BorrowedValue::Sequence(vec![v]);
+        }
+        // We don't care about the exact value, only that it doesn't overflow.
+        let depth = calculate_borrowed_structure_depth(&v);
+        assert!(depth >= 100_000);
+        // Iterative drop to avoid the recursive Drop in Vec/IndexMap.
+        drop_borrowed_iteratively(v);
+    }
+
+    #[test]
+    fn borrowed_complexity_is_stack_safe_for_deep_input() {
+        let mut v = BorrowedValue::Int(0);
+        for _ in 0..100_000 {
+            v = BorrowedValue::Sequence(vec![v]);
+        }
+        let _ = calculate_borrowed_complexity(&v);
+        drop_borrowed_iteratively(v);
+    }
+
+    // Drops a deeply nested BorrowedValue without recursing through
+    // Vec/IndexMap's own Drop. Used only by the stack-safety tests above.
+    fn drop_borrowed_iteratively(root: BorrowedValue<'_>) {
+        let mut stack: Vec<BorrowedValue<'_>> = vec![root];
+        while let Some(node) = stack.pop() {
+            match node {
+                BorrowedValue::Sequence(seq) => stack.extend(seq),
+                BorrowedValue::Mapping(map) => {
+                    for (k, v) in map {
+                        stack.push(k);
+                        stack.push(v);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // ---- alias materialization cap (#15) on ZeroCopyComposer ----
+
+    fn permissive_with_alias_cap(cap: usize) -> Limits {
+        Limits {
+            max_total_alias_nodes: cap,
+            ..Limits::permissive()
+        }
+    }
+
+    #[test]
+    fn zero_copy_alias_materialization_cap_fires() {
+        // Anchor expands to a 10-element sequence; 20 aliased siblings.
+        // Each *a materialization charges ~11 nodes, so cap=50 must reject.
+        let input = r#"
+a: &a [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+b: [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a]
+"#;
+        let mut composer = ZeroCopyComposer::with_limits(input, permissive_with_alias_cap(50));
+        let err = composer.compose_document().expect_err("cap should reject");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("alias") || msg.contains("materializ") || msg.contains("limit"),
+            "expected materialization-cap error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn zero_copy_alias_below_cap_succeeds() {
+        // Same shape but a generous cap → must succeed.
+        let input = r#"
+a: &a [1, 2, 3]
+b: [*a, *a]
+"#;
+        let mut composer = ZeroCopyComposer::with_limits(input, permissive_with_alias_cap(10_000));
+        let result = composer.compose_document().unwrap().unwrap();
+        // sanity: returns a mapping
+        assert!(matches!(result, BorrowedValue::Mapping(_)));
+    }
 }

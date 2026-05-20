@@ -485,4 +485,107 @@ ref2: *base
         // The anchors should use Rc, so cloning should be cheap
         assert!(composer.anchors.len() > 0);
     }
+
+    // ---- iterative helpers (#16) ----
+
+    #[test]
+    fn optimized_structure_depth_scalar_and_empty_is_one() {
+        assert_eq!(
+            calculate_optimized_structure_depth(&OptimizedValue::Null),
+            1
+        );
+        assert_eq!(
+            calculate_optimized_structure_depth(&OptimizedValue::Int(7)),
+            1
+        );
+        assert_eq!(
+            calculate_optimized_structure_depth(&OptimizedValue::Sequence(Rc::new(Vec::new()))),
+            1
+        );
+        assert_eq!(
+            calculate_optimized_structure_depth(&OptimizedValue::Mapping(Rc::new(IndexMap::new()))),
+            1
+        );
+    }
+
+    #[test]
+    fn optimized_structure_depth_nested_sequence() {
+        // [[[1]]] → depth 4
+        let inner = OptimizedValue::Sequence(Rc::new(vec![OptimizedValue::Int(1)]));
+        let mid = OptimizedValue::Sequence(Rc::new(vec![inner]));
+        let outer = OptimizedValue::Sequence(Rc::new(vec![mid]));
+        assert_eq!(calculate_optimized_structure_depth(&outer), 4);
+    }
+
+    #[test]
+    fn optimized_complexity_scalar_is_one() {
+        assert_eq!(calculate_complexity(&OptimizedValue::Null).unwrap(), 1);
+        assert_eq!(calculate_complexity(&OptimizedValue::Int(42)).unwrap(), 1);
+    }
+
+    #[test]
+    fn optimized_complexity_sequence_charges_len_plus_one_plus_children() {
+        // [1, 2, 3] → 1 + 3 + 3*1 = 7
+        let seq = OptimizedValue::Sequence(Rc::new(vec![
+            OptimizedValue::Int(1),
+            OptimizedValue::Int(2),
+            OptimizedValue::Int(3),
+        ]));
+        assert_eq!(calculate_complexity(&seq).unwrap(), 7);
+    }
+
+    #[test]
+    fn optimized_complexity_mapping_charges_two_per_entry_plus_one_plus_children() {
+        // { k1:1, k2:2 } → 1 + 2*2 + 4*1 = 9
+        let mut map = IndexMap::new();
+        map.insert(
+            OptimizedValue::String(Rc::new("k1".to_string())),
+            OptimizedValue::Int(1),
+        );
+        map.insert(
+            OptimizedValue::String(Rc::new("k2".to_string())),
+            OptimizedValue::Int(2),
+        );
+        assert_eq!(
+            calculate_complexity(&OptimizedValue::Mapping(Rc::new(map))).unwrap(),
+            9
+        );
+    }
+
+    // ---- alias materialization cap (#15) on ReducedAllocComposer ----
+
+    fn permissive_with_alias_cap(cap: usize) -> Limits {
+        Limits {
+            max_total_alias_nodes: cap,
+            ..Limits::permissive()
+        }
+    }
+
+    #[test]
+    fn optimized_alias_materialization_cap_fires() {
+        let input = r#"
+a: &a [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+b: [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a, *a]
+"#;
+        let mut composer =
+            ReducedAllocComposer::with_limits(input.to_string(), permissive_with_alias_cap(50));
+        let err = composer.compose_document().expect_err("cap should reject");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("alias") || msg.contains("materializ") || msg.contains("limit"),
+            "expected materialization-cap error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn optimized_alias_below_cap_succeeds() {
+        let input = r#"
+a: &a [1, 2, 3]
+b: [*a, *a]
+"#;
+        let mut composer =
+            ReducedAllocComposer::with_limits(input.to_string(), permissive_with_alias_cap(10_000));
+        let result = composer.compose_document().unwrap().unwrap();
+        assert!(matches!(result, OptimizedValue::Mapping(_)));
+    }
 }
