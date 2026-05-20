@@ -3,11 +3,12 @@ assembly-versioning-scheme: MajorMinorPatch
 assembly-file-versioning-scheme: MajorMinorPatch
 tag-prefix: "[vV]?"
 version-in-branch-pattern: (?<version>[vV]?\d+(\.\d+)?(\.\d+)?).*
+# next-version: 1.0.1
 # Conventional Commits + Legacy +semver patterns (ref: https://gitversion.net/docs/reference/version-increments)
-major-version-bump-message: '(^(feat|fix|refactor|perf|revert|release|build|ci|chore|docs|style|test)(\(.+\))?!:)|(^BREAKING[ -]CHANGE:)|((?:\b(\+|semver:)\s?)(bump|(break(?:ing)?|major)\b))'
-minor-version-bump-message: '(^feat(\(.+\))?:)|((?:\b(\+|semver:)\s?)(feat(?:ure)|minor))'
-patch-version-bump-message: '(^(fix|perf)(\(.+\))?:)|((?:\b(\+|semver:)\s?)(fix|patch))'
-no-bump-message: '(^(docs|style|refactor|revert|test|build|ci|chore)(\(.+\))?:)|((?:\b(\+|semver:)\s?)(none|skip))'
+major-version-bump-message: '((?:\b(\+|semver:)\s?)(bump|(break(?:ing)?|major)\b))'
+minor-version-bump-message: '((?:\b(\+|semver:)\s?)(feat(?:ure)|minor))'
+patch-version-bump-message: '((?:\b(\+|semver:)\s?)(fix|patch))'
+no-bump-message: '((?:\b(\+|semver:)\s?)(none|skip))'
 tag-pre-release-weight: 60000
 commit-date-format: yyyy-MM-dd
 merge-message-formats: { }

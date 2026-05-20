@@ -1,6 +1,6 @@
 [package]
 name = "rust-yaml"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
 edition = "2024"
 rust-version = "1.85"
