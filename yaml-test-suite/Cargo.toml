@@ -1,11 +1,11 @@
 [package]
 name = "yaml-test-suite"
 description = "Conformance harness driving the upstream yaml/yaml-test-suite against rust-yaml (dev-only, not published)"
-version = "0.0.0"
-authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
-edition = "2024"
-rust-version = "1.85"
-license = "MIT OR Apache-2.0"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
 repository = "https://github.com/elioetibr/rust-yaml"
 publish = false
 autobins = false

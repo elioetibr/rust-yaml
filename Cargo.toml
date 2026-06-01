@@ -1,14 +1,20 @@
-[package]
-name = "rust-yaml"
+[workspace.package]
+documentation = "https://docs.rs/rust-yaml"
 version = "1.0.1"
-authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
 edition = "2024"
 rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
+
+[package]
+name = "rust-yaml"
 description = "A fast, safe YAML 1.2 library for Rust"
-documentation = "https://docs.rs/rust-yaml"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 readme = "README.md"
 repository = "https://github.com/elioetibr/rust-yaml"
-license = "MIT OR Apache-2.0"
 keywords = ["configuration", "markup", "parser", "serialization", "yaml"]
 categories = ["config", "encoding", "parser-implementations"]
 exclude = [
