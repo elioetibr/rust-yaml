@@ -1998,3 +1998,15 @@ test_*
 *.sample
 lcov.info
 build_rs_cov.profraw
+
+# Flamegraph / profiling artifacts (see docs/PROFILING.md)
+flamegraph.svg
+flamegraph*.svg
+*.flamegraph.svg
+perf.data
+perf.data.old
+cargo-flamegraph.stacks
+cargo-flamegraph.trace/
+*.stacks
+*.dtrace.stacks
+*.folded

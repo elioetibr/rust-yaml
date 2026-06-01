@@ -224,3 +224,12 @@ codegen-units = 1
 
 [profile.bench]
 debug = true
+
+# Optimized build that keeps debug symbols so flamegraph stacks are readable.
+# Use with: cargo flamegraph --profile profiling ...  (see docs/PROFILING.md).
+# If stacks look truncated through LTO-inlined code, opt in to frame pointers
+# per-run (not committed, to keep CI/release builds untouched):
+#   RUSTFLAGS="-C force-frame-pointers=yes" cargo flamegraph --profile profiling ...
+[profile.profiling]
+inherits = "release"
+debug = true

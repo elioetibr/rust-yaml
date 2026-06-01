@@ -1,0 +1,22 @@
+# Local developer tooling. Committed so `cargo flame-*` works for everyone.
+# These aliases only run when invoked explicitly — they do not affect normal
+# `cargo build` / `cargo test` / CI behavior.
+#
+# Prerequisites: `cargo install flamegraph` (provides the `cargo flamegraph`
+# subcommand). macOS uses dtrace (bundled), Linux uses perf. See docs/PROFILING.md.
+#
+# `--root` re-runs the profiled binary under sudo, which dtrace requires on
+# macOS (you will be prompted for your password). It is harmless on Linux.
+# `--profile profiling` builds optimized code WITH debug symbols (see the
+# [profile.profiling] section in Cargo.toml) so the stacks are readable.
+# `--profile-time N` puts Criterion into profiler mode: it runs the selected
+# benchmark for N seconds with no statistical analysis or plotting — exactly
+# what an external profiler wants. The trailing regex filters to OUR code path.
+
+[alias]
+# from_str hot path (issue raised in PR #67: ~1.5-1.8x slower than serde_yaml).
+flame-serde-load = "flamegraph --root --profile profiling --features serde --bench serde_load -- --profile-time 12 rust_yaml/large"
+# to_string hot path.
+flame-serde-dump = "flamegraph --root --profile profiling --features serde --bench serde_dump -- --profile-time 12 rust_yaml/large"
+# Core scanner/parser/composer load path (no serde).
+flame-parsing = "flamegraph --root --profile profiling --bench parsing -- --profile-time 12"
