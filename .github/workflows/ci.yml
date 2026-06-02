@@ -34,9 +34,9 @@ jobs:
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     timeout-minutes: 6
     outputs:
-      informational_version: ${{ steps.gitversion.outputs.InformationalVersion }}
-      major_minor_patch: ${{ steps.gitversion.outputs.MajorMinorPatch }}
-      sem_version: ${{ steps.gitversion.outputs.SemVer }}
+      informational-version: ${{ steps.gitversion.outputs.InformationalVersion }}
+      major-minor-patch: ${{ steps.gitversion.outputs.MajorMinorPatch }}
+      semver: ${{ steps.gitversion.outputs.SemVer }}
       version: ${{ steps.gitversion.outputs.MajorMinorPatch }}
       major: ${{ steps.gitversion.outputs.Major }}
       minor: ${{ steps.gitversion.outputs.Minor }}
@@ -814,7 +814,7 @@ jobs:
       BUILD_TARGET: x86_64-unknown-linux-gnu
     # Ensure only one build job runs at a time to prevent resource conflicts
     concurrency:
-      group: build-ubuntu-latest-x86_64-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      group: ${{ job.name }}-${{ runner.os }}-${{ runner.arch }}-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
     steps:
       - name: Generate GitHub App Token
@@ -886,10 +886,10 @@ jobs:
 
       - name: Tag
         id: tag
-        if: ${{ github.ref_name == github.event.repository.default_branch }}
         shell: bash -l {0}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          TAG: "${{ github.ref_name == github.event.repository.default_branch && needs.version.outputs.version || needs.version.outputs.informational-version }}"
         run: |
           #!/usr/bin/env bash
 
@@ -916,7 +916,7 @@ jobs:
             echo
           }
 
-          tagger "v${{ needs.version.outputs.version }}"
+          tagger "v${{ github.ref_name == github.event.repository.default_branch && needs.version.outputs.version || needs.version.outputs.informational-version }}"
           if [[ "${{ github.ref_name  }}" == "${{ github.event.repository.default_branch }}" ]];
           then
             tagger "v${{ needs.version.outputs.major }}.${{ needs.version.outputs.minor }}"
@@ -924,34 +924,38 @@ jobs:
           fi
 
       - name: Generate release notes
-        id: initial-notes
-        if: ${{ github.ref_name == github.event.repository.default_branch }}
+        id: generate-release-notes
         # Build the GitHub Release body from the conventional-commit history
         # with git-cliff (config: cliff.toml) and write it to RELEASE_NOTES.md
         # for the Release step below to consume via `gh release create -F`.
         #
-        # `--current` (NOT `--unreleased`): the Tagging step above already
-        # created the release tag on HEAD, so `--unreleased` would see no
-        # unreleased commits and emit an empty section. `--current` generates
-        # notes for the tag that points at HEAD. cliff.toml's `tag_pattern`
-        # matches only full vX.Y.Z tags, so the floating v<major> and
-        # v<major>.<minor> tags the Tagging step also creates are excluded and
-        # `--current` resolves unambiguously to the v<MajorMinorPatch> release.
+        # `--latest` is the range selector that limits output to a SINGLE
+        # release section. Without it, git-cliff renders the entire changelog
+        # history into the body (and `--tag` alone only *labels* unreleased
+        # commits, it does not filter). The Tagging step above already created
+        # the vX.Y.Z tag on HEAD, and cliff.toml's `tag_pattern` matches only
+        # full vX.Y.Z tags (the floating v<major> / v<major>.<minor> tags are
+        # excluded), so `--latest` resolves unambiguously to this release.
         #
         # `--strip header` drops the changelog's global header so only this
         # release's grouped sections (plus the compare-link footer) land in
         # RELEASE_NOTES.md.
+        #
+        # `--output RELEASE_NOTES.md` is a LITERAL path, not an env var: this
+        # action runs git-cliff inside a *composite* action step, and a calling
+        # step's `env:` is not inherited by composite-action steps. Passing the
+        # path through `args` (substituted as text before bash runs) is the
+        # only reliable way to steer the output file — relying on an `OUTPUT`
+        # env here is what produced an empty RELEASE_NOTES.md before.
         uses: orhun/git-cliff-action@v4
         env:
-          OUTPUT: RELEASE_NOTES.md
           GITHUB_TOKEN: ${{ github.token }}
         with:
           config: cliff.toml
-          args: --current --strip header
+          args: --latest --strip header --output RELEASE_NOTES.md
 
       - name: Release
         id: release
-        if: ${{ github.ref_name == github.event.repository.default_branch }}
         shell: bash -l {0}
         env:
           GH_TOKEN: ${{ github.token }}
