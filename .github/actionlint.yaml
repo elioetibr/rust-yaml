@@ -1,0 +1,23 @@
+---
+# actionlint configuration
+# https://github.com/rhysd/actionlint/blob/main/docs/config.md
+
+# Org-level Actions variables are not visible to actionlint via API; declare
+# the ones we reference here so the strict-vars check stays clean.
+config-variables:
+  - APP_ID
+  - CLIENT_ID
+  - GITVERSION_SPEC
+  - RUNS_ON
+  - RUNS_ON_ARM64
+
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      # actionlint's pinned action metadata for actions/create-github-app-token
+      # still treats `app-id` as required and does not recognize the documented
+      # `client-id` input. Both inputs exist upstream (app-id is deprecated in
+      # favor of client-id), so suppress these two stale-metadata errors only.
+      # See: https://github.com/actions/create-github-app-token/blob/main/action.yml
+      - 'missing input "app-id" which is required by action "actions/create-github-app-token@v\d+'
+      - 'input "client-id" is not defined in action "actions/create-github-app-token@v\d+'

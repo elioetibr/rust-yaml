@@ -115,7 +115,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -207,7 +207,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable

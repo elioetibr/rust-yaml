@@ -40,7 +40,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -87,7 +87,7 @@ jobs:
           fetch-depth: "0"
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install committed
         uses: taiki-e/install-action@v2

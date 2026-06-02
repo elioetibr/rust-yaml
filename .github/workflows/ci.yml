@@ -61,7 +61,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install GitVersion
         uses: gittools/actions/gitversion/setup@v4.5.0
@@ -135,7 +135,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -189,7 +189,7 @@ jobs:
             ${{ matrix.os }}-cargo-build-
 
       - name: Setup cargo tools cache
-        uses: ./.github/actions/setup-cargo-tools
+        uses: elioetibr/composite-actions/setup-cargo-tools@v0
         with:
           tools: "cargo-nextest"
 
@@ -241,13 +241,13 @@ jobs:
           token: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Rust cache
-        uses: ./.github/actions/setup-rust-cache
+        uses: elioetibr/composite-actions/setup-rust-cache@v0
         with:
           cache-key-suffix: yaml-test-suite
 
@@ -354,7 +354,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -390,7 +390,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -453,13 +453,13 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup cargo tools cache
-        uses: ./.github/actions/setup-cargo-tools
+        uses: elioetibr/composite-actions/setup-cargo-tools@v0
         with:
           tools: "cargo-tarpaulin cargo-llvm-cov"
 
@@ -493,7 +493,7 @@ jobs:
         # thread interaction on the public Linux runner. cargo-llvm-cov
         # uses LLVM source-based coverage instrumentation instead, which
         # is process-isolated and doesn't depend on ptrace. It's already
-        # installed by `./.github/actions/setup-cargo-tools` and the
+        # installed by `elioetibr/composite-actions/setup-cargo-tools` and the@v0
         # locally-verified equivalent command produces the same lcov.
         #
         # We emit BOTH formats from a single test run:
@@ -618,13 +618,13 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup cargo tools cache
-        uses: ./.github/actions/setup-cargo-tools
+        uses: elioetibr/composite-actions/setup-cargo-tools@v0
         with:
           tools: "cargo-audit cargo-deny"
 
@@ -660,13 +660,13 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup cargo tools cache
-        uses: ./.github/actions/setup-cargo-tools
+        uses: elioetibr/composite-actions/setup-cargo-tools@v0
         with:
           tools: "cargo-outdated cargo-edit cargo-udeps"
 
@@ -702,7 +702,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -757,7 +757,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -837,7 +837,7 @@ jobs:
           submodules: true
 
       - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
+        uses: elioetibr/composite-actions/bot-setup@v0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -870,7 +870,7 @@ jobs:
             ${{ env.BUILD_OS }}-cargo-build-stable-
 
       - name: Setup cargo tools cache
-        uses: ./.github/actions/setup-cargo-tools
+        uses: elioetibr/composite-actions/setup-cargo-tools@v0
         with:
           tools: "cargo-edit"
           arch: ${{ env.BUILD_ARCH }}
@@ -924,8 +924,7 @@ jobs:
           fi
 
       - name: Generate release notes
-        id: initial-notes
-        if: ${{ github.ref_name == github.event.repository.default_branch }}
+        id: generate-release-notes
         # Build the GitHub Release body from the conventional-commit history
         # with git-cliff (config: cliff.toml) and write it to RELEASE_NOTES.md
         # for the Release step below to consume via `gh release create -F`.
@@ -945,9 +944,10 @@ jobs:
         env:
           OUTPUT: RELEASE_NOTES.md
           GITHUB_TOKEN: ${{ github.token }}
+          TAG: "v${{ needs.version.outputs.version }}"
         with:
           config: cliff.toml
-          args: --current --strip header
+          args: --tag $TAG --strip header
 
       - name: Release
         id: release
@@ -959,6 +959,7 @@ jobs:
           # (its `OUTPUT` env). Kept as an env var so the shell quoting is
           # explicit and the value shows up in the step's rendered log.
           RELEASE_NOTES_FILE: RELEASE_NOTES.md
+          TAG: "v${{ needs.version.outputs.version }}"
         run: |
           #!/usr/bin/env bash
 

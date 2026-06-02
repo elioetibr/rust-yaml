@@ -1,0 +1,48 @@
+extends: default
+
+# SOPS-encrypted/decrypted files carry machine-generated formatting that
+# isn't meant to satisfy human YAML style rules. Decrypted (*.dec.*) files
+# are also gitignored; encrypted (*.enc.*) ones are committed verbatim.
+ignore: |
+  secrets/*.sops.*
+  yaml-test-suite/data/**/*
+
+rules:
+  # Align with .editorconfig: 2-space indentation
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  braces:
+    min-spaces-inside-empty: 0   # GitVersion.yml uses `{ }` for empty maps; tolerate both
+    max-spaces-inside-empty: 1
+  brackets:
+    min-spaces-inside-empty: 0   # GitVersion.yml uses `[ ]` for empty lists; tolerate both
+    max-spaces-inside-empty: 1
+
+  # GitHub Actions uses 'on:' as a mapping key, which yamllint
+  # interprets as boolean true. Disable truthy check on keys.
+  truthy:
+    check-keys: false
+    allowed-values:
+      - "true"
+      - "false"
+
+  # Line length: .editorconfig sets max_line_length=200
+  line-length:
+    max: 200
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+
+  # Relaxed comment indentation for workflow readability
+  comments-indentation: disable
+
+  # No existing files use document-start marker
+  document-start: disable
+
+  # Require newline at end of file (matches .editorconfig)
+  new-line-at-end-of-file: enable
+
+  # No trailing spaces (matches .editorconfig)
+  trailing-spaces: enable

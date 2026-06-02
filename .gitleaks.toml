@@ -1,0 +1,19 @@
+# gitleaks configuration.
+#
+# Extends the built-in ruleset and excludes the generated ncc bundle from
+# scanning. `dist/` is a minified bundle of third-party dependencies, committed
+# because JavaScript GitHub Actions must ship their build output. Bundled
+# library docstrings contain example tokens — e.g. @actions/core's `setSecret`
+# JSDoc `const apiToken = "abc123xyz456"` — that trip the `generic-api-key`
+# rule as false positives. The hand-written source under `src/` is still fully
+# scanned by the default rules.
+title = "docker-tag-generator-action"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore the generated ncc bundle (vendored dependency code)"
+paths = [
+  '''^target/''',
+]
