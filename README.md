@@ -90,7 +90,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rust-yaml = "0.0.5"
+rust-yaml = "1.1.0"
 ```
 
 ### Basic Usage
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse YAML from a string
     let yaml_content = r#"
         name: "rust-yaml"
-        version: "0.0.5"
+        version: "1.1.0"
         features:
           - fast
           - safe
@@ -405,7 +405,7 @@ cargo test --features large-documents
 
 ```toml
 [dependencies]
-rust-yaml = { version = "1.0.0", features = ["serde", "large-documents"] }
+rust-yaml = { version = "1.1.0", features = ["serde", "large-documents"] }
 ```
 
 - **`default = ["mmap", "preserve-order"]`**: Default feature set with memory mapping and order preservation
@@ -556,79 +556,79 @@ git clone https://github.com/elioetibr/rust-yaml.git
 cd rust-yaml
 
 # Set up development environment (git hooks, components, etc.)
-make setup
+mise run setup
 
 # Run all tests
-make test
+mise run test
 
 # Run CI pipeline locally (same as GitHub Actions)
-make ci
+mise run ci
 
 # Quick development checks (format, lint, test)
-make quick-check
+mise run quick-check
 ```
 
 ### Development Commands
 
-The project includes a comprehensive Makefile with 60+ commands for development workflow:
+The project uses [mise](https://mise.jdx.dev) as its task runner, with 60+ tasks for the development workflow (run `mise tasks` to list them all):
 
 **Testing**
 
 ```bash
-make test              # Run all tests
-make test-lib          # Run library tests only
-make test-integration  # Run integration tests
-make test-security     # Run security-specific tests
-make test-release      # Run tests in release mode
+mise run test              # Run all tests
+mise run test-lib          # Run library tests only
+mise run test-integration  # Run integration tests
+mise run test-security     # Run security-specific tests
+mise run test-release      # Run tests in release mode
 ```
 
 **Code Quality**
 
 ```bash
-make format           # Format code with rustfmt
-make lint             # Run clippy lints
-make clippy-strict    # Run strict clippy with CI settings
-make audit            # Run security audit
-make deny             # Run cargo deny checks
+mise run format           # Format code with rustfmt
+mise run lint             # Run clippy lints
+mise run clippy-strict    # Run strict clippy with CI settings
+mise run audit            # Run security audit
+mise run deny             # Run cargo deny checks
 ```
 
 **Documentation & Reports**
 
 ```bash
-make doc              # Build documentation
-make doc-open         # Build and open documentation
-make bench            # Run performance benchmarks
+mise run doc              # Build documentation
+mise run doc-open         # Build and open documentation
+mise run bench            # Run performance benchmarks
 ```
 
 **Coverage Reports**
 
 ```bash
-make coverage         # Generate test coverage report (CI-compatible)
-make coverage-html    # Generate HTML coverage report
-make coverage-view    # Generate and open HTML coverage in browser
-make coverage-clean   # Clean coverage artifacts
-make coverage-install-tools  # Install coverage tools
+mise run coverage         # Generate test coverage report (CI-compatible)
+mise run coverage-html    # Generate HTML coverage report
+mise run coverage-view    # Generate and open HTML coverage in browser
+mise run coverage-clean   # Clean coverage artifacts
+mise run coverage-install-tools  # Install coverage tools
 
 # Alternative coverage tools
-make coverage-llvm    # Generate coverage using llvm-cov
-make coverage-llvm-html  # Generate HTML coverage with llvm-cov
+mise run coverage-llvm    # Generate coverage using llvm-cov
+mise run coverage-llvm-html  # Generate HTML coverage with llvm-cov
 ```
 
 **CI/CD & Checks**
 
 ```bash
-make ci               # Full CI pipeline (format, lint, test, security)
-make check            # Basic checks (build, test, format, lint)
-make check-all        # Comprehensive checks with audit and coverage
-make release-check    # Check if ready for release
+mise run ci               # Full CI pipeline (format, lint, test, security)
+mise run check            # Basic checks (build, test, format, lint)
+mise run check-all        # Comprehensive checks with audit and coverage
+mise run release-check    # Check if ready for release
 ```
 
 **Markdown & Documentation**
 
 ```bash
-make check-markdown   # Check markdown formatting issues
-make fix-markdown     # Fix common markdown formatting issues
-make help             # Show all available commands
+mise run check-markdown   # Check markdown formatting issues
+mise run fix-markdown     # Fix common markdown formatting issues
+mise tasks                # Show all available tasks
 ```
 
 ## Documentation

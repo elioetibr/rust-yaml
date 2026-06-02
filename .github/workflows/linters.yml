@@ -14,6 +14,11 @@ jobs:
   pre-commit:
     name: Pre-Commit
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    env:
+      # Auto-trust the repo's mise.toml so the markdown-format-check hook's
+      # `mise run check-markdown` works non-interactively in CI (mise refuses
+      # untrusted config files by default).
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
     steps:
       - name: Generate GitHub App Token
         id: app-token
@@ -41,6 +46,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ vars.PYTHON_VERSION || '3.13' }}
+
+      - uses: jdx/mise-action@v4
+        with:
+          cache_key: "mise-{{platform}}-{{version}}-{{file_hash}}"
+          github_token: ${{ github.token }}
 
       - name: Cache pre-commit hooks
         uses: actions/cache@v5

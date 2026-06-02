@@ -9,7 +9,7 @@ This document covers the development workflow, tools, and processes for the rust
    ```bash
    git clone https://github.com/elioetibr/rust-yaml.git
    cd rust-yaml
-   make setup  # Set up development environment, git hooks, components
+   mise run setup  # Set up development environment, git hooks, components
    ```
 
 2. **Make changes**:
@@ -22,11 +22,11 @@ This document covers the development workflow, tools, and processes for the rust
    # ... code changes ...
 
    # Test your changes
-   make quick-check  # Format, lint, and test
+   mise run quick-check  # Format, lint, and test
    # OR individual commands:
-   make test         # Run all tests
-   make lint         # Run clippy
-   make format       # Format code
+   mise run test         # Run all tests
+   mise run lint         # Run clippy
+   mise run format       # Format code
    ```
 
 3. **Commit with conventional format**:
@@ -198,9 +198,9 @@ Triggered by version tags (e.g., `v1.2.3`):
 - **cargo-criterion** for benchmarking
 - **cargo-audit** for security scanning
 
-### Makefile Development Commands
+### mise Task Commands
 
-The project includes a comprehensive Makefile with 60+ commands. Run `make setup` to:
+The project includes a comprehensive set of mise tasks (60+ commands). Run `mise run setup` to:
 
 - Configure git hooks for commit message validation
 - Set up conventional commit template
@@ -213,28 +213,28 @@ The project includes a comprehensive Makefile with 60+ commands. Run `make setup
 **Quick Development**
 
 ```bash
-make setup         # Set up development environment
-make quick-check   # Fast: format + lint + lib tests
-make ci            # Full CI pipeline locally
+mise run setup         # Set up development environment
+mise run quick-check   # Fast: format + lint + lib tests
+mise run ci            # Full CI pipeline locally
 ```
 
 **Testing**
 
 ```bash
-make test              # All tests
-make test-lib          # Library tests only
-make test-integration  # Integration tests
-make test-security     # Security-specific tests
+mise run test              # All tests
+mise run test-lib          # Library tests only
+mise run test-integration  # Integration tests
+mise run test-security     # Security-specific tests
 ```
 
 **Code Quality**
 
 ```bash
-make format           # Format code
-make lint             # Run clippy
-make clippy-strict    # Strict clippy (CI settings)
-make audit            # Security audit
-make deny             # Cargo deny checks
+mise run format           # Format code
+mise run lint             # Run clippy
+mise run clippy-strict    # Strict clippy (CI settings)
+mise run audit            # Security audit
+mise run deny             # Cargo deny checks
 ```
 
 ## Code Quality Standards
@@ -499,7 +499,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ### Development Infrastructure
 
-- **Makefile**: 60+ commands for development workflow ✅
+- **mise tasks**: 60+ commands for development workflow ✅
 - **Git Hooks**: Commit message validation ✅
 - **CI/CD**: GitHub Actions with multi-platform testing ✅
 - **Code Quality**: Format, lint, audit, security checks ✅

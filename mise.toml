@@ -1,0 +1,936 @@
+# mise tasks for rust-yaml
+# =========================
+# Migrated from the legacy GNU Makefile. `mise` (https://mise.jdx.dev) is the
+# task runner and tool manager that replaces `make`.
+#
+# Conventions (every task follows these):
+#   * Each `run` block is a triple-quoted TOML string.
+#   * The first line is a `#!/usr/bin/env bash` shebang — mise runs the block
+#     as a real bash script (the "interpreter marker"), not the default `sh`.
+#   * `set -euo pipefail` makes every task fail fast: error (-e), unset var (-u)
+#     and broken pipe (pipefail) all abort the task.
+#
+# The markdown tasks use TOML *literal* strings (''' … ''') instead of basic
+# ("""), because their embedded awk programs contain backslash regex escapes
+# (\. \* \t) that a basic string would mis-parse as invalid escape sequences.
+# The shebang + set -euo pipefail convention is identical inside them.
+#
+# Usage:  mise run <task>   (e.g. `mise run ci`, `mise run test`)
+#         mise tasks        (list everything)
+#
+# Tool management (rustc/cargo) is intentionally left to rustup, mirroring the
+# previous Makefile. Add a [tools] section here if you want mise to pin them.
+
+min_version = "2024.1.0"
+
+# ----------------------------------------------------------------------------
+# Help
+# ----------------------------------------------------------------------------
+[tasks.help]
+description = "Show available tasks"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+mise tasks ls
+"""
+
+# ----------------------------------------------------------------------------
+# Development environment setup
+# ----------------------------------------------------------------------------
+[tasks.setup]
+description = "Set up development environment (git hooks, dependencies, etc.)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔧 Setting up development environment..."
+if [ ! -d ".githooks" ]; then mkdir -p .githooks; fi
+if [ -f ".githooks/commit-msg" ]; then chmod +x .githooks/commit-msg; fi
+echo "🔗 Configuring git hooks..."
+git config --local core.hooksPath .githooks
+if [ -f ".gitmessage" ]; then
+  echo "📋 Setting commit message template..."
+  git config --local commit.template .gitmessage
+fi
+if ! command -v committed >/dev/null 2>&1; then
+  echo "📦 Installing committed (Conventional Commits linter)..."
+  if command -v cargo-binstall >/dev/null 2>&1; then
+    cargo binstall -y committed
+  else
+    cargo install committed
+  fi
+fi
+echo "🦀 Checking Rust components..."
+if ! rustup component list --installed | grep -q rustfmt; then rustup component add rustfmt; fi
+if ! rustup component list --installed | grep -q clippy; then rustup component add clippy; fi
+echo "🔧 Git hooks configuration..."
+if command -v pre-commit >/dev/null 2>&1; then
+  echo "💡 Pre-commit is available. Choose your hook system:"
+  echo "   • Manual hooks (current): Already configured in .githooks/"
+  echo "   • Enterprise pre-commit: Run 'mise run pre-commit-install'"
+  echo "✅ Manual git hooks remain active"
+else
+  echo "✅ Manual git hooks configured in .githooks/"
+  echo "💡 For enterprise-grade hooks: brew install pre-commit && mise run pre-commit-install"
+fi
+echo "✅ Development environment setup complete"
+"""
+
+[tasks.dev-setup]
+description = "Alias for setup"
+depends = ["setup"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "Development setup complete. Run 'mise tasks' for available commands."
+"""
+
+# ----------------------------------------------------------------------------
+# Cleaning
+# ----------------------------------------------------------------------------
+[tasks.clean]
+description = "Clean build artifacts and temporary files"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧹 Cleaning build artifacts..."
+cargo clean
+rm -f debug_*
+rm -f test_*
+rm -f lcov.info cobertura.xml
+rm -rf target/tarpaulin target/llvm-cov
+find . -name "*.tmp" -delete
+echo "✅ Clean complete"
+"""
+
+# ----------------------------------------------------------------------------
+# Testing
+# ----------------------------------------------------------------------------
+[tasks.test]
+description = "Run all tests"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧪 Running tests..."
+timeout 30s cargo test --lib --verbose
+"""
+
+[tasks.test-release]
+description = "Run tests in release mode"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧪 Running tests in release mode..."
+timeout 30s cargo test --lib --release --verbose
+"""
+
+[tasks.test-all-features]
+description = "Run tests with all features"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧪 Running tests with all features..."
+timeout 30s cargo test --lib --all-features --verbose || [ $? -eq 124 ]
+"""
+
+[tasks.test-no-default]
+description = "Run tests without default features"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧪 Running tests without default features..."
+timeout 30s cargo test --lib --no-default-features --verbose || [ $? -eq 124 ]
+"""
+
+[tasks.test-nocapture]
+description = "Run tests with output capture disabled"
+alias = "test-verbose"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧪 Running tests with output visible..."
+timeout 30s cargo test -- --nocapture
+"""
+
+[tasks.test-lib]
+description = "Run library tests only"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧪 Running library tests..."
+timeout 30s cargo test --lib
+"""
+
+[tasks.test-integration]
+description = "Run integration tests"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧪 Running integration tests..."
+# `--tests` auto-discovers every `tests/*.rs` binary, so newly added test
+# files (e.g. `tests/directives.rs`) get picked up here without being
+# enumerated. Matches what CI / nextest sees end-to-end.
+timeout 300s cargo test --tests
+"""
+
+[tasks.test-security]
+description = "Run security-specific tests"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔒 Running security tests..."
+timeout 60s cargo test --test security_limits
+timeout 60s cargo test --test security_limits test_nested_alias_expansion_limit
+"""
+
+[tasks.yaml-test-suite]
+description = "Run upstream yaml-test-suite conformance harness"
+alias = "test-yaml-suite"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧪 Running yaml/yaml-test-suite conformance harness..."
+git submodule update --init --recursive yaml-test-suite/data
+timeout 300s cargo test -p yaml-test-suite -- --nocapture
+"""
+
+# ----------------------------------------------------------------------------
+# Code quality
+# ----------------------------------------------------------------------------
+[tasks.format]
+description = "Format code"
+alias = "fmt"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🎨 Formatting code..."
+cargo fmt
+"""
+
+[tasks.format-check]
+description = "Check code formatting"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🎨 Checking code formatting..."
+cargo fmt --all -- --check
+"""
+
+[tasks.lint]
+description = "Run clippy lints"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📎 Running clippy..."
+timeout 30s cargo clippy --all-targets --all-features -- -D warnings
+"""
+
+[tasks.lint-fix]
+description = "Run clippy with automatic fixes"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📎 Running clippy with fixes..."
+timeout 30s cargo clippy --all-targets --all-features --fix -- -D warnings
+"""
+
+[tasks.clippy-strict]
+description = "Run clippy with strict CI settings"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📎 Running clippy with strict CI settings..."
+timeout 180s cargo clippy --all-targets --all-features -- -D warnings -D clippy::all -D clippy::pedantic -W clippy::nursery \
+  -A clippy::needless_raw_string_hashes \
+  -A clippy::format_push_string \
+  -A clippy::single_char_pattern \
+  -A clippy::unreadable_literal \
+  -A clippy::manual_string_new \
+  -A clippy::write_with_newline \
+  -A clippy::uninlined_format_args \
+  -A clippy::semicolon_if_nothing_returned \
+  -A clippy::explicit_iter_loop \
+  -A clippy::inefficient_to_string \
+  -A clippy::match_same_arms \
+  -A clippy::doc_markdown \
+  -A clippy::too_many_lines
+"""
+
+# ----------------------------------------------------------------------------
+# Security and audit
+# ----------------------------------------------------------------------------
+[tasks.audit]
+description = "Run security audit"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔒 Running security audit..."
+if ! command -v cargo-audit >/dev/null; then cargo install cargo-audit; fi
+cargo audit
+"""
+
+[tasks.deny]
+description = "Run cargo deny checks"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔒 Running cargo deny checks..."
+if ! command -v cargo-deny >/dev/null; then cargo install cargo-deny; fi
+timeout 15s cargo deny check
+"""
+
+# ----------------------------------------------------------------------------
+# Documentation
+# ----------------------------------------------------------------------------
+[tasks.doc]
+description = "Build documentation (treats rustdoc warnings as errors)"
+alias = "docs"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📚 Building documentation..."
+RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps
+"""
+
+[tasks.doc-open]
+description = "Build and open documentation"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📚 Building and opening documentation..."
+cargo doc --all-features --no-deps --open
+"""
+
+[tasks.doc-private]
+description = "Build documentation including private items"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📚 Building documentation with private items..."
+cargo doc --all-features --no-deps --document-private-items
+"""
+
+# ----------------------------------------------------------------------------
+# Benchmarking
+# ----------------------------------------------------------------------------
+[tasks.bench]
+description = "Run benchmarks"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "⚡ Running benchmarks..."
+cargo bench
+"""
+
+[tasks.bench-compile]
+description = "Compile benchmarks only"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "⚡ Compiling benchmarks..."
+cargo bench --no-run
+"""
+
+# ----------------------------------------------------------------------------
+# Coverage
+# ----------------------------------------------------------------------------
+[tasks.coverage]
+description = "Generate test coverage report (same as CI)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📊 Generating coverage report (CI-compatible)..."
+if ! command -v cargo-tarpaulin >/dev/null; then
+  echo "Installing cargo-tarpaulin..."
+  cargo install cargo-tarpaulin
+fi
+cargo tarpaulin --lib --tests --out lcov --output-dir . --verbose --workspace --timeout 120 --exclude-files examples/* benches/*
+echo "✅ Coverage report generated: lcov.info"
+echo "📈 Coverage summary:"
+cargo tarpaulin --lib --tests --print-summary --workspace --timeout 120 --exclude-files examples/* benches/*
+"""
+
+[tasks.coverage-html]
+description = "Generate HTML coverage report"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📊 Generating HTML coverage report..."
+if ! command -v cargo-tarpaulin >/dev/null; then
+  echo "Installing cargo-tarpaulin..."
+  cargo install cargo-tarpaulin
+fi
+cargo tarpaulin --lib --tests --out html --output-dir target/tarpaulin --verbose --workspace --timeout 120 --exclude-files examples/* benches/*
+echo "✅ HTML coverage report generated in target/tarpaulin/"
+echo "📂 Open target/tarpaulin/tarpaulin-report.html in your browser"
+"""
+
+[tasks.coverage-llvm]
+description = "Generate coverage using llvm-cov (alternative)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📊 Generating coverage with llvm-cov..."
+if ! command -v cargo-llvm-cov >/dev/null; then
+  echo "Installing cargo-llvm-cov..."
+  cargo install cargo-llvm-cov
+fi
+cargo llvm-cov --lib --lcov --output-path lcov.info
+echo "✅ Coverage report generated: lcov.info"
+"""
+
+[tasks.coverage-llvm-html]
+description = "Generate HTML coverage with llvm-cov"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📊 Generating HTML coverage with llvm-cov..."
+if ! command -v cargo-llvm-cov >/dev/null; then
+  echo "Installing cargo-llvm-cov..."
+  cargo install cargo-llvm-cov
+fi
+cargo llvm-cov --lib --html
+echo "✅ HTML coverage report generated in target/llvm-cov/html/"
+"""
+
+[tasks.coverage-clean]
+description = "Clean coverage artifacts"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧹 Cleaning coverage artifacts..."
+rm -f lcov.info cobertura.xml
+rm -rf target/tarpaulin target/llvm-cov
+echo "✅ Coverage artifacts cleaned"
+"""
+
+[tasks.coverage-view]
+description = "Generate and open HTML coverage report"
+depends = ["coverage-html"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🌐 Opening coverage report in browser..."
+if [ -f target/tarpaulin/tarpaulin-report.html ]; then
+  open target/tarpaulin/tarpaulin-report.html 2>/dev/null \
+    || xdg-open target/tarpaulin/tarpaulin-report.html 2>/dev/null \
+    || echo "Please open target/tarpaulin/tarpaulin-report.html manually"
+fi
+"""
+
+[tasks.coverage-install-tools]
+description = "Install coverage tools"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📦 Installing coverage tools..."
+cargo install cargo-tarpaulin cargo-llvm-cov
+echo "✅ Coverage tools installed"
+"""
+
+# ----------------------------------------------------------------------------
+# Build
+# ----------------------------------------------------------------------------
+[tasks.build]
+description = "Build the project"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔨 Building project..."
+cargo build
+"""
+
+[tasks.build-release]
+description = "Build in release mode"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔨 Building project in release mode..."
+timeout 30s cargo build --release
+"""
+
+[tasks.build-all-features]
+description = "Build with all features"
+alias = "build-all"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔨 Building project with all features..."
+cargo build --all-features
+"""
+
+[tasks.examples]
+description = "Run examples"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "💡 Running examples..."
+cargo run --example library_comparison
+"""
+
+# ----------------------------------------------------------------------------
+# Package and release
+# ----------------------------------------------------------------------------
+[tasks.package]
+description = "Package the crate"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📦 Packaging crate..."
+cargo package
+"""
+
+[tasks.package-list]
+description = "List files that would be packaged"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📦 Listing package contents..."
+cargo package --list
+"""
+
+# ----------------------------------------------------------------------------
+# Quality checks (CI-like)
+# ----------------------------------------------------------------------------
+[tasks.check]
+description = "Run basic checks (build, test, format, lint)"
+alias = "checks"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "✅ Running basic checks..."
+mise run format-check
+mise run lint
+mise run test
+echo "✅ All basic checks passed"
+"""
+
+[tasks.check-all]
+description = "Run all checks including audit and coverage"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "✅ Running comprehensive checks..."
+mise run format-check
+mise run lint
+mise run test-all-features
+mise run test-no-default
+mise run audit
+mise run doc
+mise run bench-compile
+mise run check-markdown
+echo "✅ All comprehensive checks passed"
+"""
+
+[tasks.ci]
+description = "Run CI pipeline locally (same as GitHub Actions)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔄 Running CI pipeline locally..."
+mise run format-check
+mise run clippy-strict
+echo "🏗️  Pre-compiling test artifacts (warms dev-deps for subsequent steps)..."
+timeout 300s cargo test --no-run --tests --quiet
+mise run test-lib
+mise run test-integration
+mise run test-security
+mise run deny
+echo "✅ CI pipeline completed successfully!"
+"""
+
+[tasks.quick-check]
+description = "Quick development checks (format, clippy, test)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "⚡ Running quick checks..."
+mise run format
+mise run lint
+mise run test-lib
+echo "✅ Quick checks passed!"
+"""
+
+[tasks.release-check]
+description = "Check if ready for release"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🚀 Checking release readiness..."
+mise run check-all
+echo "Checking version consistency..."
+CARGO_VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\\(.*\\)"/\\1/')
+if [ -f GitVersion.yml ]; then
+  GITVERSION_VERSION=$(grep 'next-version:' GitVersion.yml | sed 's/next-version: "\\?\\(.*\\)"\\?/\\1/' | sed 's/-.*//')
+  if [ "$CARGO_VERSION" != "$GITVERSION_VERSION" ]; then
+    echo "❌ Version mismatch: Cargo.toml=$CARGO_VERSION, GitVersion.yml=$GITVERSION_VERSION"
+    exit 1
+  fi
+fi
+echo "✅ Release check passed"
+"""
+
+# ----------------------------------------------------------------------------
+# Release management
+# ----------------------------------------------------------------------------
+[tasks.release]
+description = "Interactive release (manual process)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🚀 Manual Release Process"
+echo ""
+echo "📋 Release Steps:"
+echo "  1. Update version in Cargo.toml"
+echo "  2. Update version in GitVersion.yml"
+echo "  3. Run: mise run release-check"
+echo "  4. Commit changes with: git commit -m 'chore: release version X.Y.Z [skip ci]'"
+echo "  5. Create tag: git tag vX.Y.Z"
+echo "  6. Push: git push origin main && git push origin vX.Y.Z"
+echo ""
+echo "💡 Or use GitHub Actions 'Manual Version Bump' workflow"
+"""
+
+[tasks.release-patch]
+description = "Guide for patch release"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🚀 Patch Release Guide"
+mise run release
+"""
+
+[tasks.release-minor]
+description = "Guide for minor release"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🚀 Minor Release Guide"
+mise run release
+"""
+
+[tasks.release-major]
+description = "Guide for major release"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🚀 Major Release Guide"
+mise run release
+"""
+
+# ----------------------------------------------------------------------------
+# Development workflow
+# ----------------------------------------------------------------------------
+[tasks.pre-commit]
+description = "Run pre-commit checks"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔍 Running pre-commit checks..."
+mise run format
+mise run lint
+mise run test
+echo "✅ Pre-commit checks passed"
+"""
+
+[tasks.pre-push]
+description = "Run pre-push checks"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔍 Running pre-push checks..."
+mise run check-all
+echo "✅ Pre-push checks passed"
+"""
+
+# ----------------------------------------------------------------------------
+# Commit message validation
+# ----------------------------------------------------------------------------
+[tasks.commit-lint]
+description = "Test commit message format (via committed). Usage: MSG='feat: x' mise run commit-lint  (or: mise run commit-lint -- 'feat: x')"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📝 Testing commit message format..."
+msg="${MSG:-}"
+if [ -z "$msg" ] && [ "$#" -gt 0 ]; then msg="$1"; fi
+if [ -z "$msg" ]; then
+  echo "Usage: MSG='feat: add new feature' mise run commit-lint"
+  echo "   or: mise run commit-lint -- 'feat: add new feature'"
+  exit 1
+fi
+if ! command -v committed >/dev/null 2>&1; then
+  echo "❌ committed not found. Install with: cargo install committed"
+  exit 1
+fi
+printf '%s\\n' "$msg" | committed --commit-file -
+echo "✅ Commit message format is valid"
+"""
+
+# ----------------------------------------------------------------------------
+# Git workflow helpers
+# ----------------------------------------------------------------------------
+[tasks.git-status]
+description = "Show git status with helpful formatting"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+if [ -z "$(git status --porcelain)" ]; then
+  echo "✅ Working directory clean"
+else
+  echo "📂 Working directory changes:"
+  git status --short
+fi
+"""
+
+# ----------------------------------------------------------------------------
+# Pre-commit hooks management
+# ----------------------------------------------------------------------------
+[tasks.pre-commit-install]
+description = "Install pre-commit hooks (replaces manual git hooks)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔧 Installing pre-commit hooks..."
+if ! command -v pre-commit >/dev/null; then
+  echo "❌ pre-commit not found. Install with: brew install pre-commit"
+  exit 1
+fi
+echo "📝 Switching from manual git hooks to pre-commit..."
+git config --unset-all core.hooksPath || true
+pre-commit install --install-hooks
+pre-commit install --hook-type commit-msg
+echo "✅ Pre-commit hooks installed (manual .githooks disabled)"
+"""
+
+[tasks.pre-commit-run]
+description = "Run pre-commit hooks on all files"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔍 Running pre-commit hooks on all files..."
+timeout 120s pre-commit run --all-files
+"""
+
+[tasks.pre-commit-dev]
+description = "Run pre-commit hooks (without timeout for development)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔍 Running pre-commit hooks..."
+pre-commit run --all-files
+"""
+
+[tasks.pre-commit-update]
+description = "Update pre-commit hooks to latest versions"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "⬆️  Updating pre-commit hooks..."
+pre-commit autoupdate
+"""
+
+[tasks.pre-commit-clean]
+description = "Clean pre-commit cache"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🧹 Cleaning pre-commit cache..."
+pre-commit clean
+"""
+
+[tasks.pre-commit-rust]
+description = "Run only Rust-specific pre-commit hooks"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🦀 Running Rust-specific pre-commit hooks..."
+pre-commit run rust-fmt rust-clippy rust-check rust-test rust-doc
+"""
+
+[tasks.pre-commit-quick]
+description = "Run quick pre-commit hooks (skip tests and audits)"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "⚡ Running quick pre-commit hooks..."
+SKIP=rust-test,rust-coverage,rust-audit,rust-deny pre-commit run --all-files
+"""
+
+[tasks.pre-commit-security]
+description = "Run security-focused pre-commit hooks"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔒 Running security-focused pre-commit hooks..."
+pre-commit run detect-private-key detect-secrets rust-audit rust-deny
+"""
+
+# ----------------------------------------------------------------------------
+# Installation and dependencies
+# ----------------------------------------------------------------------------
+[tasks.install-tools]
+description = "Install additional development tools"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔧 Installing development tools..."
+if ! command -v cargo-audit >/dev/null; then cargo install cargo-audit; fi
+if ! command -v cargo-llvm-cov >/dev/null; then cargo install cargo-llvm-cov; fi
+if ! command -v cargo-criterion >/dev/null; then cargo install cargo-criterion; fi
+if ! command -v cargo-flamegraph >/dev/null; then cargo install flamegraph; fi
+echo "✅ Development tools installed"
+"""
+
+# ----------------------------------------------------------------------------
+# Version information
+# ----------------------------------------------------------------------------
+[tasks.version]
+description = "Show version information"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📋 Version Information:"
+echo "Cargo version: $(grep '^version = ' Cargo.toml | sed 's/version = "\\(.*\\)"/\\1/')"
+if [ -f GitVersion.yml ]; then
+  echo "GitVersion next: $(grep 'next-version:' GitVersion.yml | sed 's/next-version: "\\?\\(.*\\)"\\?/\\1/')"
+fi
+if command -v git >/dev/null && git rev-parse --git-dir >/dev/null 2>&1; then
+  echo "Git commit: $(git rev-parse --short HEAD)"
+  echo "Git branch: $(git branch --show-current)"
+fi
+"""
+
+# ----------------------------------------------------------------------------
+# Debug and troubleshooting
+# ----------------------------------------------------------------------------
+[tasks.debug-env]
+description = "Show development environment information"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔍 Development Environment:"
+echo "Rust version: $(rustc --version)"
+echo "Cargo version: $(cargo --version)"
+if command -v committed >/dev/null; then echo "committed version: $(committed --version)"; fi
+echo "Git hooks path: $(git config --get core.hooksPath || echo 'default')"
+echo "Commit template: $(git config --get commit.template || echo 'none')"
+"""
+
+# ----------------------------------------------------------------------------
+# Markdown and documentation
+# ----------------------------------------------------------------------------
+# NOTE: literal ''' strings — the embedded awk uses \. \* \t regex escapes that
+# a basic """ string would reject as invalid TOML escape sequences.
+[tasks.check-markdown]
+description = "Check markdown formatting (strict — any warning fails the target)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📝 Checking markdown formatting..."
+fail=0
+for file in *.md; do
+  if [ -f "$file" ]; then
+    echo "Checking $file..."
+    echo "=== MD022 (blank line before heading) ==="
+    awk 'BEGIN { in_fence = 0; prev = ""; issues = 0 }
+      /^```/ { in_fence = !in_fence; prev = $0; next }
+      in_fence { prev = $0; next }
+      NR > 1 && /^#{1,6} / && prev != "" { print "  Line " NR ": " $0; issues++ }
+      { prev = $0 }
+      END { exit (issues > 0 ? 1 : 0) }' "$file" || fail=1
+    echo "=== MD032 (blank line before list) ==="
+    awk 'BEGIN { in_fence = 0; prev = ""; issues = 0 }
+      /^```/ { in_fence = !in_fence; prev = $0; next }
+      in_fence { prev = $0; next }
+      NR > 1 && (/^[-*+] / || /^[0-9]+\. /) && prev != "" \
+        && prev !~ /^[-*+] / && prev !~ /^[0-9]+\. / \
+        && prev !~ /^[ \t]/ { print "  Line " NR ": " $0; issues++ }
+      { prev = $0 }
+      END { exit (issues > 0 ? 1 : 0) }' "$file" || fail=1
+    echo ""
+  fi
+done
+if [ $fail -ne 0 ]; then
+  echo "❌ Markdown checks failed — fix the listed lines or update the source files"
+  exit 1
+fi
+echo "✅ Markdown checks passed"
+'''
+
+[tasks.fix-markdown]
+description = "Fix common markdown formatting issues"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📝 Fixing markdown issues (MD022: blanks around headings, MD031: blanks around fences, MD032: blanks around lists, bold-as-headings)..."
+for file in *.md docs/*.md; do
+  if [ -f "$file" ]; then
+    echo "Processing $file..."
+    awk 'BEGIN { prev_line = ""; in_code_block = 0; last_was_blank = 0; need_blank_after = 0 }
+      /^```/ {
+        if (!in_code_block) {
+          if (NR > 1 && !last_was_blank) { print "" }
+          in_code_block = 1; print; need_blank_after = 0
+        } else {
+          in_code_block = 0; print; need_blank_after = 1
+        }
+        prev_line = $0; last_was_blank = 0; next
+      }
+      in_code_block { print; prev_line = $0; last_was_blank = 0; next }
+      /^#{1,6} \*\*.*\*\*/ { gsub(/\*\*/, "", $0) }
+      /^#{1,6} / {
+        if (need_blank_after) { print ""; need_blank_after = 0 }
+        if (NR > 1 && !last_was_blank && prev_line !~ /^#{1,6} /) { print "" }
+        print; prev_line = $0; last_was_blank = 0; next
+      }
+      /^[-*+] / || /^[0-9]+\. / {
+        if (need_blank_after) { print ""; need_blank_after = 0 }
+        if (NR > 1 && !last_was_blank && prev_line !~ /^[-*+] / && prev_line !~ /^[0-9]+\. / && prev_line !~ /^  /) { print "" }
+        print; prev_line = $0; last_was_blank = 0; next
+      }
+      /^$/ {
+        if (need_blank_after) { need_blank_after = 0 }
+        print; prev_line = $0; last_was_blank = 1; next
+      }
+      {
+        if (need_blank_after) { print ""; need_blank_after = 0 }
+        if (prev_line ~ /^#{1,6} / && !last_was_blank) { print "" }
+        if ((prev_line ~ /^[-*+] / || prev_line ~ /^[0-9]+\. /) && $0 !~ /^[-*+] / && $0 !~ /^[0-9]+\. / && $0 !~ /^  / && !last_was_blank) { print "" }
+        print; prev_line = $0; last_was_blank = 0
+      }' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+    echo "Fixed $file"
+  fi
+done
+echo "✅ Markdown formatting completed!"
+'''
+
+[tasks.check-markdown-detailed]
+description = "Check markdown with detailed line numbers"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+echo "📝 Detailed markdown check..."
+for file in *.md; do
+  if [ -f "$file" ]; then
+    echo "=== Analyzing $file ==="
+    awk 'BEGIN { prev_line = ""; line_num = 0; issues = 0 }
+      { line_num++ }
+      /^#{1,6} / {
+        if (line_num > 1 && prev_line !~ /^$/) {
+          print "MD022 - Line " line_num ": Missing blank line before heading: " $0; issues++
+        }
+      }
+      /^[-*+] / || /^[0-9]+\. / {
+        if (line_num > 1 && prev_line !~ /^$/ && prev_line !~ /^[-*+] / && prev_line !~ /^[0-9]+\. / && prev_line !~ /^  /) {
+          print "MD032 - Line " line_num ": Missing blank line before list: " $0; issues++
+        }
+      }
+      { prev_line = $0 }
+      END {
+        if (issues == 0) print "✅ No issues found";
+        else print "❌ Found " issues " issues"
+      }' "$file"
+    echo ""
+  fi
+done
+'''

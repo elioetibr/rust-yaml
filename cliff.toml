@@ -1,0 +1,80 @@
+# git-cliff configuration for conventional commits changelog
+# https://git-cliff.org
+
+[changelog]
+header = """
+# Changelog\n
+All notable changes to this project will be documented in this file.\n
+"""
+body = """
+{% macro remote_url() %}https://github.com/elioetibr/rust-yaml{% endmacro %}\
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.scope %}**{{ commit.scope }}:** {% endif %}\
+            {{ commit.message | upper_first }}\
+            {% if commit.remote.username %} by @{{ commit.remote.username }}{%- endif %}\
+            {% if commit.remote.pr_number %} in [#{{ commit.remote.pr_number }}]({{ self::remote_url() }}/pull/{{ commit.remote.pr_number }}){%- endif %}\
+    {% endfor %}
+{% endfor %}\n
+"""
+footer = """
+{% macro remote_url() %}https://github.com/elioetibr/rust-yaml{% endmacro %}\
+{% for release in releases -%}
+    {% if release.version -%}
+        {% if release.previous.version -%}
+[{{ release.version | trim_start_matches(pat="v") }}]: {{ self::remote_url() }}/compare/{{ release.previous.version }}...{{ release.version }}
+        {% endif -%}
+    {% else -%}
+        {% if release.previous.version -%}
+[unreleased]: {{ self::remote_url() }}/compare/{{ release.previous.version }}...HEAD
+        {% endif -%}
+    {% endif -%}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = true
+# Only full SemVer tags (vX.Y.Z) count as releases. Excludes the floating
+# major/minor pointer tags (v0, v0.0, v1, v1.0) so they don't create spurious
+# or duplicate release sections in the changelog.
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+filter_unconventional = false
+split_commits = false
+# Kept in sync with changelog-configuration.json (mikepenz) — same emoji,
+# title, and ordering so first-release (git-cliff) and subsequent-release
+# (mikepenz) changelogs read identically. The `<!-- NN -->` prefixes set the
+# section order (two-digit => lexical sort == numeric); the body template
+# strips them via `striptags`. Parser order is first-match-wins, so the
+# `chore(release)` skip and `chore(deps)` rule precede the catch-all `chore`.
+commit_parsers = [
+    { message = "^init", group = "<!-- 00 -->🎉 Initialization" },
+    { message = "^feat", group = "<!-- 01 -->🚀 Features" },
+    { message = "^fix", group = "<!-- 02 -->🐛 Bug Fixes" },
+    { message = "^refactor", group = "<!-- 03 -->🔧 Refactoring" },
+    { message = "^perf", group = "<!-- 04 -->⚡ Performance" },
+    { message = "^doc", group = "<!-- 05 -->📚 Documentation" },
+    { message = "^style", group = "<!-- 06 -->🎨 Styling" },
+    { message = "^test", group = "<!-- 07 -->🧪 Testing" },
+    { message = "^build", group = "<!-- 08 -->📦 Build" },
+    { message = "^ci", group = "<!-- 09 -->👷 CI/CD" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^release", skip = true },
+    { message = "^chore\\(deps", group = "<!-- 10 -->⬆️ Dependencies" },
+    { message = "^chore", group = "<!-- 11 -->🔨 Miscellaneous" },
+    { message = "^revert", group = "<!-- 12 -->⏪ Reverts" },
+]
+protect_breaking_commits = false
+filter_commits = false
+topo_order = false
+sort_commits = "oldest"
+
+[remote.github]
+owner = "elioetibr"
+repo = "rust-yaml"

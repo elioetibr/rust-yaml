@@ -3,7 +3,7 @@ assembly-versioning-scheme: MajorMinorPatch
 assembly-file-versioning-scheme: MajorMinorPatch
 tag-prefix: "[vV]?"
 version-in-branch-pattern: (?<version>[vV]?\d+(\.\d+)?(\.\d+)?).*
-# next-version: 1.0.1
+# next-version: 1.1.0
 # Conventional Commits + Legacy +semver patterns (ref: https://gitversion.net/docs/reference/version-increments)
 major-version-bump-message: '((?:\b(\+|semver:)\s?)(bump|(break(?:ing)?|major)\b))'
 minor-version-bump-message: '((?:\b(\+|semver:)\s?)(feat(?:ure)|minor))'

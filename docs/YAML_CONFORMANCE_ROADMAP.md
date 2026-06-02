@@ -15,7 +15,7 @@ Live tracker for closing the gap between rust-yaml and the yaml/yaml-test-suite
 | Lib unit tests | 190 passing            |
 
 Live results are written to `target/yaml-test-suite-failures.txt` after every
-`make test-yaml-suite` run. Categories: `Timeouts`, `Wrong reject`,
+`mise run test-yaml-suite` run. Categories: `Timeouts`, `Wrong reject`,
 `Wrong accept`, `Wrong events`.
 
 ## Done so far
@@ -223,7 +223,7 @@ regression work should follow the same loop:
    parses the same input and asserts the expected behaviour (RED).
 3. Make the smallest possible change to the parser/scanner.
 4. Re-run `cargo test --lib` (GREEN).
-5. Re-run `make test-yaml-suite` to confirm net-positive movement and no
+5. Re-run `mise run test-yaml-suite` to confirm net-positive movement and no
    lib regressions.
 6. Commit GPG-signed (no `Co-Authored-By` per project policy).
 

@@ -923,17 +923,99 @@ jobs:
             tagger "v${{ needs.version.outputs.major }}"
           fi
 
-      - name: GitHub Actions Release
+      - name: Generate release notes
+        id: initial-notes
+        if: ${{ github.ref_name == github.event.repository.default_branch }}
+        # Build the GitHub Release body from the conventional-commit history
+        # with git-cliff (config: cliff.toml) and write it to RELEASE_NOTES.md
+        # for the Release step below to consume via `gh release create -F`.
+        #
+        # `--current` (NOT `--unreleased`): the Tagging step above already
+        # created the release tag on HEAD, so `--unreleased` would see no
+        # unreleased commits and emit an empty section. `--current` generates
+        # notes for the tag that points at HEAD. cliff.toml's `tag_pattern`
+        # matches only full vX.Y.Z tags, so the floating v<major> and
+        # v<major>.<minor> tags the Tagging step also creates are excluded and
+        # `--current` resolves unambiguously to the v<MajorMinorPatch> release.
+        #
+        # `--strip header` drops the changelog's global header so only this
+        # release's grouped sections (plus the compare-link footer) land in
+        # RELEASE_NOTES.md.
+        uses: orhun/git-cliff-action@v4
+        env:
+          OUTPUT: RELEASE_NOTES.md
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          config: cliff.toml
+          args: --current --strip header
+
+      - name: Release
         id: release
         if: ${{ github.ref_name == github.event.repository.default_branch }}
         shell: bash -l {0}
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
+          # Path to the notes file written by the git-cliff step above
+          # (its `OUTPUT` env). Kept as an env var so the shell quoting is
+          # explicit and the value shows up in the step's rendered log.
+          RELEASE_NOTES_FILE: RELEASE_NOTES.md
         run: |
           #!/usr/bin/env bash
 
-          if [[ "${{ github.ref_name  }}" == "${{ github.event.repository.default_branch }}" ]];
-          then
-            gh release list | grep Draft | awk '{print $1 " \t"}' | while read -r draft; do echo "Removing Draft Releases: ${draft}"; gh release delete --yes "${draft}"; done
-            gh release create v${{ needs.version.outputs.version }} --generate-notes --verify-tag --latest
+          set -euo pipefail
+
+          if [[ "${{ github.ref_name }}" != "${{ github.event.repository.default_branch }}" ]]; then
+            echo "Skipping release step on non-default branch."
+            exit 0
           fi
+
+          echo "::group::Guard: changelog file exists + is non-empty"
+          # The git-cliff step above always writes RELEASE_NOTES.md on a
+          # successful run, so an empty or missing file here means that
+          # step was skipped or failed. Bailing now surfaces the workflow
+          # bug before we publish a release with an empty body.
+          if [[ ! -s "${RELEASE_NOTES_FILE}" ]]; then
+            echo "::error::${RELEASE_NOTES_FILE} is missing or empty. Did the 'Generate release notes' step run?"
+            exit 1
+          fi
+          echo "✓ ${RELEASE_NOTES_FILE} ($(wc -c < "${RELEASE_NOTES_FILE}") bytes)"
+          echo "::endgroup::"
+
+          echo "::group::Clean up stale draft releases"
+          # Use gh's JSON output + jq filter instead of the previous
+          # `gh release list | grep Draft | awk` pipeline. Under
+          # `set -euo pipefail`, a `grep` that finds NO matches
+          # exits 1 — which is the HAPPY path here (no drafts to
+          # clean up) but fails the pipeline, which fails the step.
+          # Pure JSON avoids the exit-code trap: `gh release list`
+          # returns `[]` when empty, `jq` filters without signaling
+          # "no matches" via exit code, and `mapfile` handles the
+          # empty list cleanly.
+          mapfile -t DRAFTS < <(
+            gh release list --json tagName,isDraft --jq '.[] | select(.isDraft) | .tagName'
+          )
+          if [[ ${#DRAFTS[@]} -eq 0 ]]; then
+            echo "No draft releases to clean up."
+          else
+            for draft in "${DRAFTS[@]}"; do
+              echo "Removing draft release: ${draft}"
+              gh release delete --yes "${draft}"
+            done
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Create release v${{ needs.version.outputs.version }}"
+          # `-F <file>` is the short form of `--notes-file`. Reading
+          # the body from disk avoids shell-escaping multi-line
+          # markdown on the command line AND keeps `gh release create`
+          # strict about exit codes (no partial-failure hiding behind
+          # a successful shell pipeline).
+          #
+          # The version comes from the `version` job (GitVersion) via
+          # `needs`, matching the tag the Tagging step created above;
+          # `--verify-tag` then confirms that tag exists before release.
+          gh release create "v${{ needs.version.outputs.version }}" \
+            -F "${RELEASE_NOTES_FILE}" \
+            --verify-tag \
+            --latest
+          echo "::endgroup::"

@@ -183,7 +183,7 @@ repos:
       # Custom markdown check using our integrated checker
       - id: markdown-format-check
         name: Markdown Format Check
-        entry: make check-markdown
+        entry: mise run check-markdown
         language: system
         files: \.md$
         pass_filenames: false

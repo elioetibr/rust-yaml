@@ -45,7 +45,7 @@ This roadmap outlines the planned improvements and enhancements for rust-yaml, f
 - **735 / 735 yaml-test-suite conformance tests passing (100.0%)**
 - Comprehensive security test suite
 - Performance benchmarks
-- 60+ Makefile commands for development
+- 60+ mise tasks for development
 - CI/CD pipeline with multi-platform testing
 
 ### ✅ Recently Completed (2026-05-18)
@@ -62,7 +62,7 @@ This roadmap outlines the planned improvements and enhancements for rust-yaml, f
   Default 1.2 keeps `=` as a plain string. See
   [`YAML_1.2.2_COMPLIANCE.md`](YAML_1.2.2_COMPLIANCE.md).
 - Strict clippy gate (`-D warnings -D pedantic` with curated allow-list)
-  now blocking — every fix must pass `make ci` before merge.
+  now blocking — every fix must pass `mise run ci` before merge.
 
 ### ✅ Earlier (2025-08-16)
 
@@ -71,7 +71,7 @@ This roadmap outlines the planned improvements and enhancements for rust-yaml, f
 - Zero-copy value types with Rc optimization
 - Alias depth enforcement and cyclic reference detection
 - Performance benchmarks and optimization
-- Comprehensive development tooling (Makefile)
+- Comprehensive development tooling (mise)
 
 ### ❌ Future Enhancements
 
@@ -297,7 +297,7 @@ to the **v2.0.0** milestone: removing it necessarily breaks the public
 - [ ] Achieve >90% code coverage
 - [x] Add fuzzing tests (cargo-fuzz harness in `fuzz/`: `load_str`, `load_str_strict`, `roundtrip` — #28)
 - [ ] Implement property-based testing
-- [x] Add YAML test suite compliance tests (735/735 against `yaml/yaml-test-suite` `data-2022-01-17`; harness in `yaml-test-suite/`, run via `make test-yaml-suite`)
+- [x] Add YAML test suite compliance tests (735/735 against `yaml/yaml-test-suite` `data-2022-01-17`; harness in `yaml-test-suite/`, run via `mise run test-yaml-suite`)
 - [ ] Create integration tests with popular frameworks
 
 ## Priority 6: Advanced Features 🔧

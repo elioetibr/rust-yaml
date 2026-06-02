@@ -23,23 +23,23 @@ brew install pre-commit
 pip install pre-commit
 
 # Set up the development environment (includes pre-commit setup)
-make setup
+mise run setup
 
 # Or install pre-commit hooks manually
-make pre-commit-install
+mise run pre-commit-install
 ```
 
 ### Basic Usage
 
 ```bash
 # Run all pre-commit hooks on all files
-make pre-commit-run
+mise run pre-commit-run
 
 # Update hooks to latest versions
-make pre-commit-update
+mise run pre-commit-update
 
 # Clean pre-commit cache if needed
-make pre-commit-clean
+mise run pre-commit-clean
 ```
 
 ## Hook Categories
@@ -159,8 +159,8 @@ Baseline configuration for secret detection, preventing false positives while ma
 
 ```bash
 # Clean and reinstall
-make pre-commit-clean
-make pre-commit-install
+mise run pre-commit-clean
+mise run pre-commit-install
 ```
 
 #### Rust Tools Not Found
@@ -225,7 +225,7 @@ The configuration can be extended with:
 
 ### For Developers
 
-1. **Run Hooks Regularly**: Use `make pre-commit-run` to test changes
+1. **Run Hooks Regularly**: Use `mise run pre-commit-run` to test changes
 2. **Keep Dependencies Updated**: Regular `cargo audit` and updates
 3. **Review Hook Output**: Don't ignore warnings or suggestions
 4. **Use Conventional Commits**: Follow the established format
@@ -259,10 +259,10 @@ The pre-commit configuration is designed to work seamlessly with CI/CD:
 
 ```bash
 # Update all hooks to latest versions
-make pre-commit-update
+mise run pre-commit-update
 
 # Test updated configuration
-make pre-commit-run
+mise run pre-commit-run
 ```
 
 ### Adding New Hooks
