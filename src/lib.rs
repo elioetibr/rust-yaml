@@ -98,6 +98,7 @@ pub mod position;
 pub mod profiling;
 pub mod representer;
 pub mod resolver;
+pub mod roundtrip;
 pub mod scanner;
 pub mod schema;
 pub mod serializer;
@@ -139,6 +140,7 @@ pub use parser::{
 };
 pub use representer::{Representer, SafeRepresenter};
 pub use resolver::{BasicResolver, PlainScalarType, Resolver, resolve_plain_scalar};
+pub use roundtrip::{PathSegment, RoundTripDocument, Span};
 pub use scanner::{BasicScanner, Scanner, Token, TokenType};
 pub use serializer::{BasicSerializer, Serializer};
 pub use streaming_enhanced::{
