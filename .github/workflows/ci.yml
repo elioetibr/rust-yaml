@@ -10,12 +10,12 @@ concurrency:
 
 on:
   push:
-    branches: [main, develop]
+    branches: ["**"]
     paths-ignore:
       - "**.md"
       - "benches/**"
   pull_request:
-    branches: [main, develop]
+    branches: ["**"]
     paths-ignore:
       - "**.md"
       - "benches/**"
