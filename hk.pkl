@@ -1,0 +1,200 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+amends "package://github.com/jdx/hk/releases/download/v1.54.0/hk@1.54.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.54.0/hk@1.54.0#/Builtins.pkl"
+
+local linters = new Mapping<String, Step> {
+    ["check-added-large-files"] = new Step {
+        glob = "**"
+        check = "hk util check-added-large-files {{ files }}"
+    }
+    ["check-merge-conflict"] = new Step {
+        glob = "**"
+        check = "hk util check-merge-conflict {{ files }}"
+    }
+    ["check-case-conflict"] = new Step {
+        glob = "**"
+        check = "hk util check-case-conflict {{ files }}"
+    }
+    ["check-symlinks"] = new Step {
+        glob = "**"
+        check = "hk util check-symlinks {{ files }}"
+    }
+    ["check-executables-have-shebangs"] = new Step {
+        glob = "**"
+        check = "hk util check-executables-have-shebangs {{ files }}"
+    }
+    ["check-byte-order-marker"] = new Step {
+        glob = "**"
+        check = "hk util check-byte-order-marker {{ files }}"
+    }
+    ["trailing-whitespace-fixer"] = new Step {
+        glob = "**"
+        check = "hk util trailing-whitespace --diff {{ files }}"
+        fix = "hk util trailing-whitespace --fix {{ files }}"
+    }
+    ["end-of-file-fixer"] = new Step {
+        glob = "**"
+        check = "hk util end-of-file-fixer --diff {{ files }}"
+        fix = "hk util end-of-file-fixer --fix {{ files }}"
+    }
+    ["mixed-line-ending-fixer"] = new Step {
+        glob = "**"
+        check = "hk util mixed-line-ending --diff {{ files }}"
+        fix = "hk util mixed-line-ending --fix {{ files }}"
+    }
+
+    // NOT Builtins.gitleaks. The builtin runs `gitleaks dir <files...>`, but
+    // `gitleaks dir` accepts a SINGLE path — handed more than one it silently
+    // falls back to walking the whole tree. That took 1.42 GB / 7 minutes here
+    // and surfaced two false positives from mangled Rust symbols in a worktree's
+    // compiled .o files, blocking the commit. `git --staged` scans exactly the
+    // staged diff instead: precise, and seconds rather than minutes.
+    ["gitleaks"] = new Step {
+        glob = "**"
+        check = "mise run gitleaks git --staged"
+    }
+
+    ["yamllint-rs"] = new Step {
+        glob = "*.{yml,yaml}"
+        check = "mise run yamllint {{ files }}"
+        fix = "mise run yamllint:fix {{ files }}"
+    }
+
+    ["actionlint"] = new Step {
+        glob = ".github/workflows/*.{yml,yaml}"
+        check = "mise run actionlint {{ files }}"
+    }
+
+    ["cargo-sort"] = new Step {
+        glob = "**/Cargo.toml"
+        check = "mise run cargo:sort:check"
+        fix = "mise run cargo:sort"
+    }
+
+    ["taplo"] = new Step {
+        glob = "*.toml"
+        check = "mise run taplo:check {{ files }}"
+        fix = "mise run taplo:fmt {{ files }}"
+    }
+
+    ["rumdl"] = new Step {
+        glob = "*.md"
+        check = "mise run markdownlint {{ files }}"
+        fix = "mise run markdownlint:fix {{ files }}"
+    }
+
+    ["comply-fix"] = new Step {
+        glob = "*.rs"
+        fix = "mise run comply:fix {{ files }}"
+    }
+
+    // Staged files only, via comply's own `lint-file`. The whole-project `lint`
+    // walks ~900 files on every commit to judge a handful of changed ones; this
+    // scales with the change instead. Upstream reuse ships the same pair of
+    // hooks (`reuse lint` and `reuse lint-file`) for the same reason.
+    //
+    // The project-wide checks `lint-file` cannot make -- unused licences,
+    // LICENSES/ hygiene -- still run in CI via `mise run comply`.
+    ["comply"] = new Step {
+        glob = "**"
+        check = "mise run comply lint-file {{ files }}"
+    }
+
+    // `comply` above only asks whether a header EXISTS; this asks whether it has
+    // the canonical shape, so a hand-written variant cannot drift back in once
+    // the tree is clean. It used to be its own step in cicd.yml's `supply-chain`
+    // job and was lost when that job was folded into `hk check --all` -- defined
+    // here rather than in a workflow so the pre-commit hook and CI gate on the
+    // same thing.
+    ["comply-format"] = new Step {
+        glob = "**"
+        check = "mise run comply:format:check"
+    }
+
+    ["commit-config"] = new Step {
+        glob = "{commit-types.toml,scripts/commit-config.py,committed.toml,cliff.toml,.gitmessage}"
+        check = "mise run commit:config:check"
+    }
+
+    // Both sides are globbed on purpose. Watching only the source would miss a
+    // hand-edit of the generated `.gitignore`, which is the direction the drift
+    // actually took: `/.playwright-mcp/` became two timestamped filenames.
+    ["gitignore"] = new Step {
+        glob = "{ignorefile.toml,.gitignore}"
+        check = "mise run gitignore:check"
+    }
+
+    // Every file that RESTATES the version Cargo.toml declares, anchor included:
+    // drift arrives from either direction, whether the anchor moves and the
+    // restatements are forgotten or a restatement is hand-edited on its own.
+    // `mise run version` is not involved -- GitVersion's SemVer carries
+    // CommitsSinceVersionSource and so advances on every commit, which no
+    // committed file can be gated against. `version:sync` writes the fix.
+    ["version-sync"] = new Step {
+        glob = "{Cargo.toml,docs/package.json,docs/reference/cli.md}"
+        check = "mise run version:check"
+    }
+
+    // Cargo.lock records each member's version too, but cargo owns that file --
+    // `version:sync` must not write it. This is the other half: a bump that never
+    // had a cargo command run after it leaves the lock behind, and the task was
+    // defined but wired to nothing, so nothing caught it.
+    ["cargo-lock"] = new Step {
+        glob = "{Cargo.lock,Cargo.toml,**/Cargo.toml}"
+        check = "mise run cargo:lock:check"
+    }
+
+    ["audit"] = new Step {
+        glob = "{Cargo.lock,Cargo.toml,**/Cargo.toml}"
+        check = "mise run cargo:audit"
+    }
+    ["deny"] = new Step {
+        glob = "{Cargo.lock,Cargo.toml,**/Cargo.toml,deny.toml}"
+        check = "mise run cargo:deny"
+    }
+
+    ["fmt-check"] = new Step {
+        glob = "*.rs"
+        check = "mise run cargo:fmt:check"
+    }
+    ["clippy"] = new Step {
+        glob = "*.rs"
+        check = "mise run cargo:clippy"
+    }
+}
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "git"
+        steps = linters
+    }
+
+    ["pre-commit:all"] {
+        fix = true
+        stash = "git"
+        steps = linters
+    }
+
+    ["check"] {
+        steps = linters
+    }
+
+    ["fix"] {
+        fix = true
+        steps = linters
+    }
+
+    ["commit-msg"] {
+        steps {
+            ["committed"] = new Step {
+                check = "mise run commit:lint --commit-file {{ files }}"
+            }
+        }
+    }
+
+    ["post-commit"] {}
+}
