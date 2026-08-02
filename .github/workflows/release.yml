@@ -36,10 +36,13 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# `pages: write` is deliberately absent. It was here for a docs job that
+# deployed to Pages; that job now only builds an artifact, and gh-pages.yml is
+# what publishes the site. `id-token: write` stays -- crates-io-auth-action mints
+# an OIDC token for the registry.
 permissions:
   contents: write
   id-token: write
-  pages: write
   pull-requests: write
 
 jobs:
@@ -70,22 +73,47 @@ jobs:
           token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
+      # Every expression reaches the shell through `env:`, never spliced into the
+      # script text -- the convention the summary job at the end of this file
+      # already documents. A release tag name is pushed input: interpolated with
+      # `${{ }}` it is substituted before bash parses a single quote, so a tag
+      # containing shell metacharacters would execute here with this job's token.
       - name: Extract version
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+          set -Eeuo pipefail
+
+          if [ "${EVENT_NAME}" = "release" ]; then
+            VERSION="${TAG_NAME#v}"
           else
-            VERSION="${{ github.event.inputs.version }}"
+            VERSION="${INPUT_VERSION}"
           fi
+
+          # Refuse anything that is not SemVer rather than carrying it onward: a
+          # floating tag like `v1` or `v1.1` reaches this workflow exactly as a
+          # release tag does, and would otherwise flow into `cargo publish` and
+          # the crates.io lookup as a version that cannot resolve.
+          if ! printf '%s' "${VERSION}" \
+            | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Refusing '${VERSION}' (event '${EVENT_NAME}'): not a SemVer version."
+            exit 1
+          fi
+
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "📦 Version to publish: ${VERSION}"
 
       - name: Check if should publish
         id: check
+        env:
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          set -Eeuo pipefail
+
+          if [ "${DRY_RUN}" = "true" ]; then
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
             echo "🔍 Dry run mode - will not publish"
           else
@@ -145,11 +173,11 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         id: check-crates
         env:
-          CRATE_NAME: ${{ vars.CRATE_NAME || github.event.repository.name }}
+          CRATES_NAME: ${{ vars.CRATES_NAME || github.event.repository.name }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           # Check if version already exists
-          if cargo search "${CRATE_NAME}" --limit 1 | grep -q "^${CRATE_NAME}.*\"${VERSION}\""; then
+          if cargo search "${CRATES_NAME}" --limit 1 | grep -q "^${CRATES_NAME}.*\"${VERSION}\""; then
             echo "❌ Version ${VERSION} already exists on crates.io"
             exit 1
           else
@@ -160,59 +188,61 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
+          VERSION: ${{ needs.validate.outputs.version }}
         run: |
+          set -Eeuo pipefail
+
           cargo publish --token "${CARGO_REGISTRY_TOKEN}" --verbose
-          echo "🎉 Successfully published version ${{ needs.validate.outputs.version }} to crates.io"
+          echo "🎉 Successfully published version ${VERSION} to crates.io"
 
       - name: Verify publication
         if: github.event.inputs.dry_run != 'true'
+        # Same env binding as the check step above rather than a second, hardcoded
+        # copy of the crate name. The literal that was here would keep saying
+        # `rust-yaml` after a rename and report success against a crate nobody
+        # published.
+        env:
+          CRATES_NAME: ${{ vars.CRATES_NAME || github.event.repository.name }}
+          VERSION: ${{ needs.validate.outputs.version }}
         run: |
+          set -Eeuo pipefail
+
           echo "Waiting for crates.io to index the new version..."
           sleep 60
 
-          CRATE_NAME="rust-yaml"
-          VERSION="${{ needs.validate.outputs.version }}"
-
-          if cargo search "${CRATE_NAME}" --limit 1 | grep -q "^${CRATE_NAME}.*\"${VERSION}\""; then
+          if cargo search "${CRATES_NAME}" --limit 1 | grep -q "^${CRATES_NAME}.*\"${VERSION}\""; then
             echo "✅ Version ${VERSION} is now available on crates.io"
-            echo "📚 View at: https://crates.io/crates/${CRATE_NAME}/${VERSION}"
+            echo "📚 View at: https://crates.io/crates/${CRATES_NAME}/${VERSION}"
           else
             echo "⚠️ Version not yet indexed, but should appear soon"
           fi
 
-  # Delegates to docs.yml rather than restating the build. The steps this
-  # replaced published `target/doc` alone, which would have overwritten the
-  # VitePress site with rustdoc-only output on every release -- the two
-  # pipelines share one Pages deployment, so whichever ran last won.
+  # Builds the API documentation; it does NOT publish. docs.yml stopped
+  # deploying when Pages moved to serving the `gh-pages` branch -- it now only
+  # emits a `rustdoc` artifact, which gh-pages.yml grafts in at /api/. There is
+  # no `with:` block for the same reason: that workflow takes no inputs any
+  # more, and passing the old `dry-run` fails the run outright rather than being
+  # ignored.
   #
-  # `cargo set-version` is not carried over: this workflow runs on a published
-  # release, so the checked-out tag already carries the released version in
-  # Cargo.toml and rustdoc reads it from there.
-  publish-docs:
-    name: Publish Documentation
+  # Not gated on `should_publish`: a dry run is exactly when it is worth knowing
+  # that the docs still build. `!= 'failure'` admits the skipped publish-crate,
+  # and `!cancelled()` stops a cancelled run continuing.
+  build-docs:
+    name: Build Documentation
     needs: [validate, publish-crate]
-    # Deliberately NOT gated on `should_publish`. A dry run sets that to false
-    # and skips publish-crate, so gating on it here skipped this job too and the
-    # `dry-run` input below became unreachable -- the docs were never built on a
-    # dry run, which is the run that most wants to know whether they still build.
-    # `!= 'failure'` admits the skipped case; `!cancelled()` keeps a cancelled
-    # run from publishing.
     if: |
       !cancelled() &&
       needs.validate.result == 'success' &&
       needs.publish-crate.result != 'failure'
     uses: ./.github/workflows/docs.yml
-    with:
-      dry-run: ${{ github.event.inputs.dry_run == 'true' }}
     # Reusable workflows receive no secrets unless passed. Without this the
     # app-token step sees an empty PRIVATE_KEY; `continue-on-error` keeps the
-    # job alive on `github.token`, so the failure would be silent rather than
-    # loud -- the docs would still publish, just without the app identity.
+    # job alive on `github.token`, so the loss would be silent rather than loud.
     secrets: inherit
 
   summary:
     name: Publication Summary
-    needs: [validate, publish-crate, publish-docs]
+    needs: [validate, publish-crate, build-docs]
     if: always()
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     steps:
@@ -220,8 +250,11 @@ jobs:
         env:
           VERSION: ${{ needs.validate.outputs.version }}
           CRATE_RESULT: ${{ needs.publish-crate.result }}
-          DOCS_RESULT: ${{ needs.publish-docs.result }}
+          DOCS_RESULT: ${{ needs.build-docs.result }}
           REPO_OWNER: ${{ github.repository_owner }}
+          # Same derivation the publish jobs use, rather than a third hardcoded
+          # `rust-yaml` in the URLs below.
+          CRATES_NAME: ${{ vars.CRATES_NAME || github.event.repository.name }}
         # A single grouped redirect rather than 26 individual ones (SC2129), with
         # $GITHUB_STEP_SUMMARY quoted (SC2086) and every workflow expression bound
         # through env: instead of spliced into the script text.
@@ -234,7 +267,7 @@ jobs:
 
             if [ "${CRATE_RESULT}" = "success" ]; then
               echo "✅ **crates.io:** Successfully published"
-              echo "   - View: https://crates.io/crates/rust-yaml/${VERSION}"
+              echo "   - View: https://crates.io/crates/${CRATES_NAME}/${VERSION}"
             elif [ "${CRATE_RESULT}" = "skipped" ]; then
               echo "⏭️ **crates.io:** Skipped (dry run or already published)"
             else
@@ -242,14 +275,18 @@ jobs:
             fi
             echo ""
 
+            # "built", not "published". This workflow stopped deploying anything
+            # when docs.yml became an artifact producer; the site is published by
+            # gh-pages.yml from publish.yml. Claiming a Pages publish here sent
+            # readers to a URL this run never touched.
             if [ "${DOCS_RESULT}" = "success" ]; then
-              echo "✅ **Documentation:** Successfully published"
-              echo "   - docs.rs: https://docs.rs/rust-yaml/latest"
-              echo "   - GitHub Pages: https://${REPO_OWNER}.github.io/rust-yaml/"
+              echo "✅ **API documentation:** Built (artifact \`rustdoc\`)"
+              echo "   - docs.rs builds the published crate independently:"
+              echo "     https://docs.rs/${CRATES_NAME}/${VERSION}"
             elif [ "${DOCS_RESULT}" = "skipped" ]; then
-              echo "⏭️ **Documentation:** Skipped (dry run)"
+              echo "⏭️ **API documentation:** Skipped"
             else
-              echo "❌ **Documentation:** Failed or not completed"
+              echo "❌ **API documentation:** Failed or not completed"
             fi
             echo ""
 

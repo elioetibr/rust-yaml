@@ -8,13 +8,13 @@
 
 set -e
 
-CRATE_NAME="rust-yaml"
+CRATES_NAME="rust-yaml"
 VERSION=$(grep '^version' Cargo.toml | cut -d'"' -f2)
 
-echo "📦 Publishing $CRATE_NAME version $VERSION"
+echo "📦 Publishing $CRATES_NAME version $VERSION"
 
 # Check if version already exists
-if cargo search "$CRATE_NAME" --limit 1 | grep -q "^$CRATE_NAME.*\"$VERSION\""; then
+if cargo search "$CRATES_NAME" --limit 1 | grep -q "^$CRATES_NAME.*\"$VERSION\""; then
     echo "❌ Version $VERSION already exists on crates.io"
     exit 1
 fi
@@ -45,7 +45,7 @@ echo "⏳ Waiting for crates.io to index (60 seconds)..."
 sleep 60
 
 # Check if published
-if cargo search "$CRATE_NAME" --limit 1 | grep -q "^$CRATE_NAME.*\"$VERSION\""; then
+if cargo search "$CRATES_NAME" --limit 1 | grep -q "^$CRATES_NAME.*\"$VERSION\""; then
     echo "✅ Version $VERSION published to crates.io"
 else
     echo "⚠️  Version not yet indexed on crates.io"
@@ -55,7 +55,7 @@ fi
 echo "📚 Monitoring docs.rs build status..."
 echo "   This may take a few minutes..."
 
-DOCS_URL="https://docs.rs/$CRATE_NAME/$VERSION"
+DOCS_URL="https://docs.rs/$CRATES_NAME/$VERSION"
 MAX_ATTEMPTS=20
 ATTEMPT=0
 
@@ -80,5 +80,5 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
 done
 
 echo "⚠️  Documentation build is taking longer than expected."
-echo "   Check build status at: https://docs.rs/crate/$CRATE_NAME"
+echo "   Check build status at: https://docs.rs/crate/$CRATES_NAME"
 echo "   Direct link will be: $DOCS_URL"

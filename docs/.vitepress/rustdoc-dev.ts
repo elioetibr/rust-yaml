@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: rust-yaml contributors
+// SPDX-FileCopyrightText: Rust Yaml contributors
 //
 // SPDX-License-Identifier: MIT OR Apache-2.0
 

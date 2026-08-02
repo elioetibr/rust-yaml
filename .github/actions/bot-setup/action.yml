@@ -2,22 +2,41 @@
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-name: bot-setup
+name: "Bot Setup"
 author: Elio Severo Junior <elioseverojunior@gmail.com>
-description: bot-setup
+description: >
+  Configure git for the github-actions[bot] identity and publish it as outputs.
+  Sets author/committer/user globally plus the pull/push defaults every job that
+  commits relies on, and exports GITHUB_BOT_EMAIL/GITHUB_BOT_USERNAME to the job
+  environment so later steps need no literals of their own.
+
+# Each output is a MAP with `value:`. The bare `name: ${{ ... }}` form is
+# `workflow_call` syntax; on a composite action it does not expose the output at
+# all, so a caller reading `steps.<id>.outputs.bot-email` gets an empty string
+# with no error. The chain is three links and all three are required: the step
+# needs an `id`, the step writes `name=value` to `$GITHUB_OUTPUT`, and the action
+# republishes it here.
+outputs:
+  bot-email:
+    description: "Email the bot commits and authors as"
+    value: ${{ steps.bot-config.outputs.bot-email }}
+  bot-user:
+    description: "Username the bot commits and authors as"
+    value: ${{ steps.bot-config.outputs.bot-user }}
+
 runs:
   using: "composite"
   steps:
     - name: GitHub Actions Bot Configuration
-      id: bot_config
+      id: bot-config
       env:
-        GITHUB_BOT_EMAIL: "github-actions[bot]@users.noreply.github.com"
+        GITHUB_BOT_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
         GITHUB_BOT_USERNAME: "github-actions[bot]"
       shell: bash -l {0}
       run: |
         #!/usr/bin/env bash
 
-        set -euo pipefail
+        set -Eeuo pipefail
 
         echo "GITHUB_BOT_EMAIL=${{ env.GITHUB_BOT_EMAIL }}" >> "$GITHUB_ENV"
         echo "GITHUB_BOT_USERNAME=${{ env.GITHUB_BOT_USERNAME }}" >> "$GITHUB_ENV"
@@ -26,6 +45,7 @@ runs:
         git config --global author.name "${{ env.GITHUB_BOT_USERNAME }}"
         git config --global committer.email "${{ env.GITHUB_BOT_EMAIL }}"
         git config --global committer.name "${{ env.GITHUB_BOT_USERNAME }}"
+        git config --global core.autocrlf input
         git config --global init.defaultBranch ${{ github.event.repository.default_branch }}
         git config --global pull.ff only
         git config --global pull.rebase true
@@ -34,5 +54,5 @@ runs:
         git config --global user.email "${{ env.GITHUB_BOT_EMAIL }}"
         git config --global user.name "${{ env.GITHUB_BOT_USERNAME }}"
 
-        echo "bot_email=${{ env.GITHUB_BOT_EMAIL }}" >> "$GITHUB_OUTPUT"
-        echo "bot_user=${{ env.GITHUB_BOT_USERNAME }}" >> "$GITHUB_OUTPUT"
+        echo "bot-email=${{ env.GITHUB_BOT_EMAIL }}" >> "$GITHUB_OUTPUT"
+        echo "bot-user=${{ env.GITHUB_BOT_USERNAME }}" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,676 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: Publish
+
+# A LITERAL name, not `${{ github.workflow }}`. In a called workflow that
+# expression resolves to the CALLER's name, so this rendered as `CI-main` -- the
+# same group cicd.yml holds -- and the call deadlocked against its own caller:
+# "Canceling since a deadlock was detected for concurrency group: 'CI-main'
+# between a top level workflow and 'Publish'". A fixed prefix cannot collide with
+# the caller's group however this workflow is reached.
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+
+# One workflow, because these jobs must be ORDERED. Packaging, provenance,
+# signing and publishing used to be split across publish.yml and
+# crates-publish.yml, and `needs:` does not reach across workflows -- so the
+# crates.io publish could not depend on the artefacts being attested and signed.
+# It fired on `release: published` while the signing fired on the tag push, and
+# nothing sequenced the two. A crate could reach crates.io whether or not its
+# provenance had been generated.
+#
+# Reachability is the other half, and it is why `workflow_call` exists below:
+# neither `push: tags` nor `release: published` fires for an automated release,
+# because cicd.yml raises both with GITHUB_TOKEN and GitHub suppresses
+# workflow-triggering events from that token. Those triggers serve a human
+# pushing a tag; cicd.yml calls this workflow directly.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g., 0.1.0)"
+        required: true
+        type: string
+      dry-run:
+        description: "Perform a dry run without publishing"
+        required: false
+        type: boolean
+        default: true
+  # Called directly by cicd.yml rather than waiting on the tag it pushes. A tag
+  # pushed with GITHUB_TOKEN does not create a workflow run -- GitHub suppresses
+  # events raised by that token to stop workflows retriggering themselves -- so
+  # `push: tags` never fires for an automated release and this whole pipeline
+  # was unreachable through it. `workflow_call` expresses the dependency
+  # structurally instead, with no long-lived PAT to hold it together.
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to publish (e.g., 0.1.0)"
+        required: false
+        type: string
+      dry-run:
+        description: "Perform a dry run without publishing"
+        required: false
+        type: boolean
+        default: true
+
+  # For a tag pushed by a HUMAN, which does raise the event (unlike one pushed by
+  # cicd.yml with GITHUB_TOKEN). This trigger carries no `inputs` context at all,
+  # so `inputs.dry-run` is the empty string here -- not `true`, not `false`. The
+  # `Check if should publish` step therefore treats it as a dry run, because that
+  # step publishes only on an explicit "false". A human tag push packages,
+  # attests and signs, and uploads nothing to crates.io.
+  #
+  # To publish from a tag, dispatch this workflow manually with dry-run
+  # unchecked. Do NOT "fix" the check step to publish on an empty value: that is
+  # the fail-open this trigger would otherwise reintroduce.
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CRATES_NAME: ${{ vars.CRATES_NAME || github.event.repository.name }}
+  VERSION: ${{ inputs.version }}
+# A `CRATES_DRY_RUN` env lived here. Removed: nothing read it, and it could not
+# have worked if anything had. `${{ vars.CRATES_DRY_RUN || inputs.dry-run || 'true' }}`
+# collapses to 'true' whenever the caller asks for a real publish, because GitHub
+# treats boolean `false` as falsy in `||` -- so `false || false || 'true'` is
+# 'true'. Setting the repo variable to `false` to enable publishing would have
+# done the opposite of what it reads like. The single source of truth is the
+# `dry-run` input, resolved in `validate.check` below.
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+    outputs:
+      should_publish: ${{ steps.check.outputs.should_publish }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+          fetch-tags: "true"
+          token: ${{ secrets.GITHUB_TOKEN || github.token }}
+
+      # From the tag, not `github.event.release.tag_name`: this no longer runs on
+      # the `release` event, so that field is empty here.
+      - name: Extract version
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -eo pipefail
+          if [ -n "${INPUT_VERSION}" ]; then
+            VERSION="${INPUT_VERSION}"
+          else
+            VERSION="${TAG#v}"
+          fi
+          # Tags carry a `v` prefix and versions do not, so normalise both paths
+          # rather than only the tag one -- a hand-dispatched `v0.0.1-1` is the
+          # same release as `0.0.1-1` and should not be turned away by the check
+          # below.
+          VERSION="${VERSION#v}"
+          # The fallback above only yields a version when a TAG ref triggered the
+          # run. `${TAG#v}` leaves anything else untouched, so a branch ref used
+          # to emit the literal string `main` and every downstream job took it at
+          # face value. Refuse a value that is not SemVer rather than packaging
+          # one: the failure should name its cause, not surface as a confusing
+          # crates.io rejection several jobs later.
+          if ! printf '%s' "${VERSION}" \
+            | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Refusing to publish '${VERSION}': not a SemVer version (TAG='${TAG}', INPUT_VERSION='${INPUT_VERSION}')."
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Version to publish: ${VERSION}"
+
+      - name: Check if should publish
+        id: check
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -eo pipefail
+          # Fails CLOSED: only an explicit "false" publishes. The test used to be
+          # `= "true"` with publishing in the else branch, so ANY other value --
+          # including the empty string -- released the crates. `inputs.dry-run`
+          # is empty on any trigger that declares no such input, which is exactly
+          # what the commented-out `push: tags` above would reintroduce. A
+          # publish gate should need permission, not merely the absence of a veto.
+          if [ "${DRY_RUN}" = "false" ]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            echo "Will proceed with publishing"
+          else
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            echo "Dry run mode (dry-run='${DRY_RUN}') - will not publish"
+          fi
+
+  package:
+    name: Package crates
+    needs: [validate]
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+          fetch-tags: "true"
+          token: ${{ secrets.GITHUB_TOKEN || github.token }}
+
+      - uses: ./.github/actions/setup-rust-env
+        with:
+          cargo-tools: ""
+
+      - name: Package crates
+        run: |
+          set -Eeuo pipefail
+
+          mkdir -p dist
+
+          # `publish = false` gates `cargo publish` ONLY -- `cargo package` has no
+          # registry semantics and packages the dev-only crates regardless. Left
+          # unfiltered, the `cp` below drops glaucus-bench, glaucus-fuzz and
+          # glaucus-yaml-test-suite into dist/, where they get hashed, attested,
+          # cosign-signed and attached to the release. Derived, not hardcoded, so
+          # a future dev-only crate needs no edit here; see `crates:dev-only` in
+          # mise.toml for why the logic lives there.
+          #
+          # Assigned to a variable FIRST, then split -- not read straight from a
+          # process substitution. `read -ra ARR < <(cmd)` discards cmd's exit
+          # status entirely whenever cmd wrote any stdout before failing, so the
+          # task's fail-closed guard would be silently ignored (verified). Under
+          # `set -e` a failed command substitution in an assignment does abort.
+          EXCLUDE_ARGS="$(mise run crates:dev-only --flags --verbose)"
+          read -ra EXCLUDES <<< "${EXCLUDE_ARGS}"
+
+          # Neither `--no-verify` nor `--allow-dirty`. `--no-verify` skips the
+          # build check, so a crate that does not compile could still be
+          # packaged, hashed, attested and signed -- attesting to an artefact
+          # nothing had built. `--allow-dirty` hid a tree that did not match the
+          # tagged commit, which would have signed a tarball for a state no
+          # commit describes. At a tag both should hold, so a failure here is
+          # real news.
+          cargo package --workspace --all-features --verbose "${EXCLUDES[@]+"${EXCLUDES[@]}"}"
+          cargo package --workspace --all-features --list --verbose "${EXCLUDES[@]+"${EXCLUDES[@]}"}"
+          cp target/package/*.crate dist/
+
+      - name: Compute hashes
+        id: hash
+        working-directory: dist
+        run: echo "hashes=$(sha256sum ./*.crate | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: crates-dist
+        with:
+          name: crates
+          path: dist/*.crate
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        id: crates-target-package
+        with:
+          name: crates-target-package
+          path: dist/*
+
+  provenance:
+    name: SLSA L3 provenance
+    needs: [package]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    # A TAG, not a SHA -- the one place in this repo that cannot be SHA-pinned.
+    # The generator verifies its OWN provenance against its release tag and
+    # rejects anything else outright: "Invalid ref: f7dd8c54... Expected ref of
+    # the form refs/tags/vX.Y.Z". That rejection is what was failing the `final`
+    # job with exit 27; the "Repository is private" line above it was a red
+    # herring emitted before the ref check.
+    #
+    # This costs a point on OpenSSF Scorecard's Pinned-Dependencies check, which
+    # is the deliberate trade: SHA-pinning it means no provenance at all.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.package.outputs.hashes }}
+      # The repository is PUBLIC (`gh api repos/... -q .private` -> false), but the
+      # generator halted with "Repository is private. The workflow has halted in
+      # order to keep the repository name from being exposed in the public
+      # transparency log." It reads `github.event.repository.private`, which a
+      # `workflow_call` does not populate the way a directly-triggered run does,
+      # and treats absent as private.
+      #
+      # So this override says "publish to Rekor anyway", which is what a public
+      # repo wants. Nothing is leaked that is not already published: Cargo.toml's
+      # `repository` field carries this exact URL to crates.io.
+      #
+      # If the repo is ever made private, revisit -- the guard exists for a real
+      # reason and this flag switches it off.
+      # Only on a tag. `upload-assets` attaches the attestation to the Release
+      # for the CURRENT ref, and cicd.yml calls this workflow on a push to main --
+      # where `github.ref` is `refs/heads/main` and no release exists. The
+      # generator has no guard for that and failed its `final` job with exit 27
+      # (`SUCCESS: false`), taking the whole publish chain down with it.
+      #
+      # On a tag push the release does exist, so the attestation attaches as
+      # intended. Off a tag the provenance is still generated and still available
+      # as a workflow artifact -- only the release upload is skipped.
+      upload-assets: ${{ startsWith(github.ref, 'refs/tags/') }}
+      private-repository: true
+
+  sign:
+    name: Sigstore signing
+    needs: [package]
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: crates
+          path: dist
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign crates (keyless OIDC)
+        run: |
+          for f in dist/*.crate; do
+            cosign sign-blob --yes "$f" --bundle "$f.cosign.bundle"
+          done
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signatures
+          path: dist/*.cosign.bundle
+
+      # A workflow artifact is not a release asset: it expires, and it is
+      # reachable only by navigating to the run. Signatures kept there cannot be
+      # used -- nobody can `cosign verify-blob` an artefact they cannot find, so
+      # the signing ran, passed, and produced nothing usable. The provenance job
+      # already attaches its attestation via `upload-assets: true`; this is the
+      # same idea for the bundles.
+      #
+      # Skipped when no Release exists for the tag (a `workflow_call` from cicd.yml
+      # can outrun release creation), so a missing Release does not fail signing
+      # that otherwise succeeded.
+      - name: Attach signatures to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN || github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eo pipefail
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" dist/*.cosign.bundle --clobber
+            set -- dist/*.cosign.bundle
+            echo "Attached $# bundle(s) to ${TAG}"
+          else
+            echo "::warning::No release for ${TAG}; bundles remain as the 'signatures' artifact"
+          fi
+
+  publish-crates:
+    name: Publish crates to crates.io
+    # The whole point of the merge: publishing now waits on provenance AND
+    # signing. Across two workflows this dependency could not be expressed, so
+    # crates reached the registry unattested whenever the signing job was slower,
+    # failed, or never ran.
+    #
+    # No job-level `if` on should_publish: a dry run has to REACH here, or it
+    # verifies nothing. Only the two steps that touch the registry are gated.
+    needs: [validate, provenance, sign]
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    environment: crates-io
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+          fetch-tags: "true"
+          token: ${{ secrets.GITHUB_TOKEN || github.token }}
+
+      # `cargo package`/`cargo publish` build each crate to verify it, so they
+      # need mold from setup-rust-env; the bare toolchain action left it out and
+      # the verify step would fail at link time.
+      - uses: ./.github/actions/setup-rust-env
+
+      # Runs either way -- proving both crates package is what a dry run is FOR.
+      - name: Verify packages
+        run: |
+          set -Eeuo pipefail
+
+          # Same subtraction as the `Package crates` step, and for the same
+          # reason: `cargo package` ignores `publish = false`. A dry run that
+          # verified a different crate set than the real publish would not be a
+          # rehearsal of anything. Assignment-then-split for the exit-status
+          # reason documented at the `Package crates` step.
+          EXCLUDE_ARGS="$(mise run crates:dev-only --flags --verbose)"
+          read -ra EXCLUDES <<< "${EXCLUDE_ARGS}"
+
+          echo "📦 Verifying package..."
+          cargo package --workspace --all-features --verbose "${EXCLUDES[@]+"${EXCLUDES[@]}"}"
+          cargo package --workspace --all-features --list --verbose "${EXCLUDES[@]+"${EXCLUDES[@]}"}"
+
+          # Check package size. This counts only what ships: unfiltered, the
+          # ~9.2k conformance fixtures in glaucus-yaml-test-suite dominated the
+          # total and the number said nothing about the published crates.
+          PACKAGE_SIZE=$(cargo package --workspace --all-features --list "${EXCLUDES[@]+"${EXCLUDES[@]}"}" | wc -l)
+          echo "Package contains ${PACKAGE_SIZE} files"
+
+      # Answers "has this NAME been taken", not merely "is this version taken".
+      # Those are different questions and only the second used to be asked: the
+      # check grepped our own version out of the published list, so a name owned
+      # by SOMEONE ELSE at a different version read as "available" and the 403
+      # only surfaced mid-publish.
+      #
+      # EVERY publishable member, not just ${CRATES_NAME}. That variable holds
+      # one name -- the repository's -- while `cargo publish --workspace` below
+      # uploads all of them, so a collision on any other crate was invisible here
+      # and surfaced after earlier crates had already gone up. crates.io uploads
+      # are immutable, so that strands a release permanently half-applied.
+      #
+      # `cargo search` is the wrong instrument for this: it is a PREFIX search,
+      # so `cargo search glaucus` also matches glaucus-core, and the grep could
+      # report a sibling's version as this crate's. The sparse index is an exact
+      # per-crate lookup.
+      #
+      # The logic lives in mise.toml, not in this file and not in a
+      # .github/scripts/ helper: mise.toml is the single source of truth for this
+      # project's tasks, and a workflow-only copy could not be run locally before
+      # cutting a release. `mise run crates:status` is the same
+      # command a human runs.
+      - name: Check crates.io status
+        if: needs.validate.outputs.should_publish == 'true'
+        id: check-crates
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+
+          # `tee` so the classification is visible in the log AND parseable here.
+          # Under `pipefail` a non-zero task exit still fails the step, which is
+          # what makes the fail-closed behaviour survive the pipeline.
+          mise run crates:status --owner "${OWNER}" \
+            | tee /tmp/crates-status.txt
+
+          BOOTSTRAP="$(sed -n 's/^bootstrap_needed=//p' /tmp/crates-status.txt | tail -1)"
+
+          # An empty verdict means the task changed shape without this step
+          # following. Fail rather than write an empty output that the auth gate
+          # below would silently read as "not bootstrapping".
+          if [ -z "${BOOTSTRAP}" ]; then
+            echo "::error::crates:status produced no bootstrap_needed verdict."
+            exit 1
+          fi
+
+          echo "bootstrap_needed=${BOOTSTRAP}" >> "$GITHUB_OUTPUT"
+
+          if [ "${BOOTSTRAP}" = "true" ]; then
+            echo "::notice::New crate names need a first publish. Using CRATES_IO_USER_TOKEN; configure Trusted Publishing for those crates afterwards so later runs need no secret."
+          fi
+
+      # Trusted publishing, and the reason it is CONDITIONAL. A Trusted Publishing
+      # config can only be created for a crate that already exists on crates.io,
+      # so during a bootstrap run at least one crate has no config and this action
+      # cannot mint a token that covers the workspace. Running it anyway fails the
+      # job before the account token ever gets a chance.
+      #
+      # Placed after the status check because it consumes that step's verdict;
+      # it used to sit before `Verify packages`, where the verdict did not exist
+      # yet. Still gated on should_publish: a dry run should not mint a registry
+      # token it will not use.
+      - name: Crates.io Authentication (trusted publishing)
+        id: crates-auth
+        if: >-
+          needs.validate.outputs.should_publish == 'true' &&
+          steps.check-crates.outputs.bootstrap_needed == 'false'
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+
+      # `--workspace` resolves the publish order from the dependency graph and
+      # polls the index between crates, so neither has to be maintained here.
+      - name: Publish to crates.io
+        if: needs.validate.outputs.should_publish == 'true'
+        # The token reaches cargo through the ENVIRONMENT only. It was also passed
+        # as `--token "${CARGO_REGISTRY_TOKEN}"`, which put a live registry
+        # credential in the process command line -- argv is world-readable via
+        # `ps`, and the flag was redundant besides: cargo reads
+        # CARGO_REGISTRY_TOKEN from the environment on its own, which is the form
+        # rust-lang/crates-io-auth-action documents.
+        #
+        # Two sources, arriving as SEPARATE variables so the choice between them
+        # is made in shell below and shows up in the log. `crates-auth.outputs
+        # .token` is the short-lived OIDC token and is empty when that step was
+        # skipped; CRATES_IO_USER_TOKEN is a long-lived account token needed ONLY
+        # to claim names that do not exist yet. Once every crate exists and has a
+        # Trusted Publishing config, the OIDC branch always wins and the secret
+        # can be deleted from the repository.
+        #
+        # The secret NAME and the env var name differ on purpose:
+        # CARGO_REGISTRY_TOKEN is the variable cargo itself reads, so it is not
+        # free to change, while the secret is named for what it holds.
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-auth.outputs.token }}
+          CRATES_IO_USER_TOKEN: ${{ secrets.CRATES_IO_USER_TOKEN }}
+          BOOTSTRAP: ${{ steps.check-crates.outputs.bootstrap_needed }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+
+          # Credential selection, in preference order. This is an if/elif rather
+          # than a parameter-expansion default on purpose, for two reasons:
+          #
+          #   * `${CARGO_REGISTRY_TOKEN:${CRATES_IO_USER_TOKEN}}` is SUBSTRING
+          #     expansion, not a fallback -- the fallback form needs `:-`, and
+          #     without the dash bash evaluates the second token as an arithmetic
+          #     offset and aborts the step.
+          #   * a default inside `[ -z ... ]` only TESTS a value; it never puts it
+          #     anywhere. Cargo reads CARGO_REGISTRY_TOKEN from the environment,
+          #     so the winning token has to actually be assigned to it.
+          #
+          # Neither token is ever echoed; only which one was chosen.
+          if [ -n "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo "auth: trusted publishing (short-lived OIDC token)"
+          elif [ -n "${CRATES_IO_USER_TOKEN:-}" ]; then
+            echo "auth: CRATES_IO_USER_TOKEN (long-lived account token)"
+            export CARGO_REGISTRY_TOKEN="${CRATES_IO_USER_TOKEN}"
+          else
+            # Named, actionable failure. Without this the run reaches cargo and
+            # dies with "no token found, please run `cargo login`", which says
+            # nothing about which of the two credentials was actually missing.
+            if [ "${BOOTSTRAP}" = "true" ]; then
+              echo "::error::New crate names need a first publish, but secret CRATES_IO_USER_TOKEN is not set or is empty. Add a crates.io API token with the publish-new scope."
+            else
+              echo "::error::Trusted publishing returned no token. Verify the Trusted Publishing config on crates.io matches this repository, workflow file and environment."
+            fi
+            exit 1
+          fi
+
+          if [ "${BOOTSTRAP}" = "true" ]; then
+            echo "::warning::Publishing with a long-lived account token to claim new crate names. Configure Trusted Publishing for each crate afterwards and delete the secret."
+          fi
+
+          # RETRY LOOP, because a workspace of new crates CANNOT land in one shot.
+          # crates.io allows a burst of 5 brand-new crates and then one per ten
+          # minutes, so `cargo publish --workspace` stops mid-way with HTTP 429
+          # and leaves the release half-applied -- some names claimed, some not.
+          # Uploads are immutable, so the only way forward is to exclude what
+          # already landed and publish the remainder.
+          #
+          # The exclusion set is recomputed from the REGISTRY on every attempt,
+          # not tracked locally: the crates that landed before the 429 are only
+          # knowable by asking. That also makes this resumable across separate
+          # workflow runs, not just across iterations here.
+          ATTEMPTS=12
+          COOLDOWN=630   # 10min limit + margin for clock skew
+
+          for ATTEMPT in $(seq 1 "${ATTEMPTS}"); do
+            mise run crates:status --owner "${OWNER}" \
+              | tee /tmp/publish-status.txt
+
+            TODO="$(sed -n 's/^todo=//p' /tmp/publish-status.txt | tail -1)"
+            TAKEN="$(sed -n 's/^taken=//p' /tmp/publish-status.txt | tail -1)"
+
+            if [ -z "${TODO}" ]; then
+              echo "🎉 All crates published at ${VERSION}"
+              exit 0
+            fi
+
+            EXCLUDES=()
+            for CRATE in ${TAKEN}; do
+              EXCLUDES+=(--exclude "${CRATE}")
+            done
+
+            echo "::group::attempt ${ATTEMPT}/${ATTEMPTS} -- publishing: ${TODO}"
+            # `--workspace` still resolves publish ORDER from the dependency
+            # graph; the excludes only remove what is already up. Selecting the
+            # remainder with repeated `-p` would discard that ordering.
+            if cargo publish --workspace --all-features --verbose "${EXCLUDES[@]+"${EXCLUDES[@]}"}"; then
+              echo "::endgroup::"
+              echo "🎉 Successfully published version ${VERSION} to crates.io"
+              exit 0
+            fi
+            echo "::endgroup::"
+
+            if [ "${ATTEMPT}" -eq "${ATTEMPTS}" ]; then
+              echo "::error::Still incomplete after ${ATTEMPTS} attempts. Re-run this job; it resumes from whatever already landed."
+              exit 1
+            fi
+
+            echo "::warning::Publish stopped early (rate limit expected). Waiting ${COOLDOWN}s before retrying."
+            sleep "${COOLDOWN}"
+          done
+
+      # `should_publish`, not `github.event.inputs.dry-run`: on a `workflow_call`
+      # there is no `event.inputs`, so that expression was empty and the step ran
+      # -- sleeping 60s and "verifying" a publish that a dry run never made.
+      - name: Verify publication
+        if: needs.validate.outputs.should_publish == 'true'
+        env:
+          VERSION: "${{ needs.validate.outputs.version }}"
+        run: |
+          set -Eeuo pipefail
+
+          echo "Waiting for crates.io to index the new version..."
+          sleep 60
+
+          # Same task as the pre-flight, in its post-publish mode: confirm every
+          # crate landed, not only the one sharing the repository's name. Sharing
+          # the task rather than restating the loop is the point -- the index
+          # sharding and the fail-closed HTTP handling exist in exactly one place.
+          #
+          # Deliberately not gated on the exit status: a crate that is not indexed
+          # 60s after upload is normally just slow, and failing the release for it
+          # would be a false alarm. The task reports what is pending.
+          mise run crates:status --verify
+
+      - name: Dry run verification
+        if: needs.validate.outputs.should_publish != 'true'
+        run: echo "Dry run -- crates packaged and verified, provenance and signing exercised, nothing published."
+
+  # Publishes the VitePress site. A job-level `uses:`, not a step: a step cannot
+  # call a workflow, which is what the previous version of this job attempted.
+  # The only docs publisher. A `publish-docs` job used to deploy rustdoc through
+  # the Pages ARTIFACT path, which this repo cannot serve -- Pages reads the
+  # `gh-pages` branch. The developer-facing API reference is docs.rs's job, built
+  # automatically on crates.io publish; this one is the user-facing site.
+  # rustdoc, built once here and handed to `gh-pages` below as an artifact. It
+  # publishes nothing; without it that job would have to run `cargo doc` itself,
+  # which is a second build of the same thing from a possibly different checkout,
+  # and would drag a Rust toolchain into a job that otherwise compiles nothing.
+  #
+  # No `if` on `should_publish`, for the reason `publish-crates` states above: a
+  # dry run has to REACH the work to verify it. Building rustdoc is exactly the
+  # kind of thing a dry run exists to prove still works.
+  docs:
+    name: Build API documentation
+    needs: [validate]
+    uses: ./.github/workflows/docs.yml
+    secrets: inherit
+
+  gh-pages:
+    name: Publish docs site
+    # `validate` is required, not decorative: `with:` below reads
+    # `needs.validate.outputs`, and outputs are readable only from jobs listed
+    # here. `docs` is required because this consumes its `rustdoc` artifact --
+    # `needs` is what orders the two, and same-run artifacts are the only reason
+    # no token or run-id is involved.
+    needs: [validate, publish-crates, docs]
+    # No `if` on `should_publish`. It used to carry one, which made a dry run
+    # skip this job entirely -- so `publish:` below could never be false, and the
+    # site went unbuilt on precisely the run meant to prove it still builds. The
+    # `publish` input is the gate now, matching how `publish-crates` gates only
+    # the steps that touch the registry.
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/gh-pages.yml
+    secrets: inherit
+    # Required, not optional: gh-pages.yml's `publish` job gates on `inputs.publish`
+    # and defaults it to false, so calling without this builds the site and
+    # deploys nothing.
+    with:
+      publish: ${{ !inputs.dry-run }}
+      # Graft docs.yml's rustdoc in at /api/. Defaults to false there, because a
+      # standalone dispatch has no `docs` job beside it to produce the artifact.
+      include-api: true
+      # Declared `required` by that workflow, which uses it only to print the
+      # docs.rs URL in its summary. `validate` already resolved it.
+      version: ${{ needs.validate.outputs.version }}
+
+  summary:
+    name: Publish Summary
+    needs: [validate, package, provenance, sign, publish-crates, gh-pages]
+    if: always()
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    steps:
+      - name: Summary
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          PROVENANCE: ${{ needs.provenance.result }}
+          SIGN: ${{ needs.sign.result }}
+          CRATES: ${{ needs.publish-crates.result }}
+          DOCS: ${{ needs.gh-pages.result }}
+        run: |
+          set -eo pipefail
+
+          {
+            echo "# Publish Summary"
+            echo ""
+            echo "**Version:** ${VERSION}"
+            echo ""
+            echo "| Stage | Result |"
+            echo "| --- | --- |"
+            echo "| SLSA provenance | ${PROVENANCE} |"
+            echo "| Sigstore signing | ${SIGN} |"
+            echo "| crates.io | ${CRATES} |"
+            echo "| Documentation | ${DOCS} |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${CRATES}" = "success" ]; then
+            echo "- crates.io: https://crates.io/crates/${REPO}/${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${CRATES}" = "skipped" ]; then
+            echo "- crates.io: skipped (dry run)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${DOCS}" = "success" ]; then
+            echo "- docs.rs: https://docs.rs/${REPO}/latest" >> "$GITHUB_STEP_SUMMARY"
+            echo "- GitHub Pages: https://${OWNER}.github.io/${REPO}/" >> "$GITHUB_STEP_SUMMARY"
+          fi

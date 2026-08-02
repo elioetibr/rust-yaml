@@ -1,0 +1,276 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: GitHub Pages Docs
+
+# A LITERAL name, not `${{ github.workflow }}`. In a called workflow that
+# expression resolves to the CALLER's name, so this rendered as `CI-main` -- the
+# same group cicd.yml holds -- and the call deadlocked against its own caller:
+# "Canceling since a deadlock was detected for concurrency group: 'CI-main'
+# between a top level workflow and 'Publish'". A fixed prefix cannot collide with
+# the caller's group however this workflow is reached.
+concurrency:
+  group: gh-pages-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+
+# The VitePress site under `docs/`. Built on every change so a broken site is
+# caught in review; published only from `main`.
+#
+# A workflow of its own rather than a job in cicd.yml, for the reason mise.toml
+# already gives for keeping the docs tasks out of `ci` and `pr:ready`: a broken
+# docs build must not fail the crate gate. It also compiles nothing, so it skips
+# setup-rust-env and the 26 pinned Rust tools entirely.
+# No `push` trigger: publish.yml's `gh-pages` job calls this workflow, so a push
+# to main would publish the site and the release would then publish it again --
+# and between the two the site could sit ahead of the released version.
+#
+# `pull_request` stays, and only builds: `publish` below requires `inputs.publish`,
+# which a pull request cannot set. It is the one cheap check that the site still
+# compiles BEFORE merge. Without it a broken docs build first surfaces during a
+# release, and `gh-pages` runs after `publish-crates` -- so the failure would land
+# after an irreversible crates.io publication.
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish the built site to gh-pages, not just build it"
+        type: boolean
+        default: false
+      include-api:
+        # Whether to graft docs.yml's rustdoc artifact in at /api/. Off by
+        # default because a bare dispatch of this workflow has no docs.yml job
+        # beside it, so the artifact would not exist; callers that order the two
+        # together turn it on. Failing loudly beats publishing a site whose API
+        # section silently vanished.
+        description: "Download the rustdoc artifact and publish it at /api/"
+        type: boolean
+        required: false
+        default: false
+      version:
+        # A version STRING (e.g. `0.0.1-1`), not a boolean -- the description and
+        # type were both copied from `publish` above. publish.yml passes
+        # `needs.validate.outputs.version`, so a boolean input was being handed a
+        # version string.
+        #
+        # Optional, defaulting to `latest`: it is used only to build the docs.rs
+        # URL in the summary, so requiring it would mean inventing a version just
+        # to dispatch a docs build by hand. `latest` is a real docs.rs path.
+        description: "Version to cite in the docs.rs link (e.g. 0.0.1-1)"
+        type: string
+        required: false
+        default: "latest"
+  workflow_call:
+    inputs:
+      publish:
+        description: "Publish the built site to gh-pages, not just build it"
+        type: boolean
+        default: false
+      include-api:
+        # Whether to graft docs.yml's rustdoc artifact in at /api/. Off by
+        # default because a bare dispatch of this workflow has no docs.yml job
+        # beside it, so the artifact would not exist; callers that order the two
+        # together turn it on. Failing loudly beats publishing a site whose API
+        # section silently vanished.
+        description: "Download the rustdoc artifact and publish it at /api/"
+        type: boolean
+        required: false
+        default: false
+      version:
+        # A version STRING (e.g. `0.0.1-1`), not a boolean -- the description and
+        # type were both copied from `publish` above. publish.yml passes
+        # `needs.validate.outputs.version`, so a boolean input was being handed a
+        # version string.
+        #
+        # Optional, defaulting to `latest`: it is used only to build the docs.rs
+        # URL in the summary, so requiring it would mean inventing a version just
+        # to dispatch a docs build by hand. `latest` is a real docs.rs path.
+        description: "Version to cite in the docs.rs link (e.g. 0.0.1-1)"
+        type: string
+        required: false
+        default: "latest"
+
+# NOT `read-all`. This workflow is called (publish.yml calls gh-pages.yml,
+# and cicd.yml calls publish.yml), and a
+# called workflow cannot request more than the calling JOB grants. `read-all`
+# expands to read on every scope there is -- attestations, discussions, models,
+# packages, statuses and a dozen more -- so the call failed with "The workflow is
+# requesting 'artifact-metadata: read, attestations: read, ...' but is only
+# allowed". Every job that needs more than this declares it itself.
+permissions:
+  contents: read
+
+env:
+  # mise is here for its task definitions, not for provisioning: bun comes from
+  # setup-bun, and installing the workspace's Rust tools would cost minutes in a
+  # job that never touches a crate.
+  MISE_TASK_RUN_AUTO_INSTALL: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      # ONE checkout, carrying the `ref:` from the start. There were two, neither
+      # guarded, so both always ran: a full recursive clone at the default ref,
+      # then a second one at the PR head sha that overwrote it. The first existed
+      # only because `./.github/actions/bot-setup` below is a LOCAL action and
+      # cannot resolve before the repository is on disk -- which a single
+      # correctly-reffed checkout satisfies just as well.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+          fetch-tags: "true"
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN || github.token }}
+
+      - name: GitHub Actions Bot Configuration
+        uses: ./.github/actions/bot-setup
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          # Resolved from the repo root: this step sets no working-directory,
+          # so the path has to be spelled out. The pin lives beside the
+          # `package.json` it belongs to, under `docs/`.
+          bun-version-file: "docs/.bun-version"
+
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          install: false
+
+      # `mise run` rather than `bun run build`, so DOCS_BASE handling and the
+      # install-then-build order stay declared once, in mise.toml.
+      - name: Build
+        run: mise run docs:build
+
+      # `bun.lock` is tracked as the site's supply-chain record. An install that
+      # rewrites it means the manifest and the lock disagree, which is worth
+      # failing on here rather than discovering as a silent dependency drift.
+      - name: Check the lockfile was not rewritten
+        run: git diff --exit-code -- docs/bun.lock
+
+      # rustdoc comes from docs.yml as an artifact rather than being rebuilt
+      # here. That is why this job installs no Rust toolchain: `cargo doc` in
+      # this workflow would be a second build of the same thing, and two builds
+      # can see two checkouts -- so the API pages could describe a different
+      # commit than the site wrapped around them.
+      #
+      # Downloading needs no token or run-id because the caller invokes docs.yml
+      # and this workflow as jobs of the SAME run, which is the default scope.
+      # Gated on `include-api` so a standalone dispatch, where no docs.yml job
+      # ran, does not fail looking for an artifact nobody produced.
+      - name: Add API documentation
+        if: ${{ inputs.include-api }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: rustdoc
+          # Straight into the built site, so the upload below carries /api/ with
+          # it and the publish job stays unchanged.
+          path: docs/.vitepress/dist/api
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-site
+          path: docs/.vitepress/dist
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    name: Publish to gh-pages
+    needs: build
+    # `inputs.publish` is truthy rather than compared to 'true': a boolean
+    # workflow_dispatch input arrives as a real boolean, and GitHub casts both
+    # sides to numbers on a mixed comparison, so `true == 'true'` is false.
+    # `inputs.publish` is the whole condition now. The `github.event_name ==
+    # 'push'` clause this replaces became dead the moment the push trigger was
+    # removed, so it read as a second publish path while granting none -- and it
+    # was the only thing keeping the site publishing at all.
+    if: ${{ needs.build.result == 'success' && inputs.publish }}
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+          fetch-tags: "true"
+          token: ${{ secrets.GITHUB_TOKEN || github.token }}
+
+      - name: GitHub Actions Bot Configuration
+        id: bot-config
+        uses: ./.github/actions/bot-setup
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: docs-site
+          path: dist
+
+      # `peaceiris`, not `upload-pages-artifact`/`deploy-pages`. Pages serves this
+      # repo from the `gh-pages` BRANCH, and those two actions publish through the
+      # Pages ARTIFACT source instead -- a repo can serve from only one, so they
+      # deployed something the site never reads. They were also pointed at
+      # `target/doc`, which no step in this job creates: the artifact downloaded
+      # above is the VitePress site, in `dist`.
+      #
+      # `keep_files: true` is load-bearing rather than a convenience: the default
+      # clears the branch before copying. For the same reason never set
+      # `force_orphan` here -- it discards the branch history outright. The cost is
+      # that nothing is ever deleted, so a renamed page keeps serving its old URL
+      # until someone prunes it by hand.
+      - uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+          publish_dir: dist
+          publish_branch: gh-pages
+          keep_files: true
+          # From bot-setup's outputs rather than repeated literals, so the
+          # identity the site commits under is declared in exactly one place.
+          user_name: ${{ steps.bot-config.outputs.bot-user }}
+          user_email: ${{ steps.bot-config.outputs.bot-email }}
+          commit_message: "docs: publish ${{ inputs.version }} ${{ github.sha }}"
+
+      # `github.repository` is the STRING "owner/repo", not an object, so
+      # `github.repository.name` resolved to empty and both docs.rs links came out
+      # as `https://docs.rs//<version>`. The name is stripped from
+      # $GITHUB_REPOSITORY here instead, which also keeps the Pages URL correct if
+      # the repository is ever renamed, and `config.mts` derives VitePress's `base`
+      # from the same name.
+      - name: Summary
+        env:
+          VERSION: ${{ inputs.version }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          SHA: ${{ github.sha }}
+          BOT: ${{ steps.bot-config.outputs.bot-user }}
+        run: |
+          set -eo pipefail
+
+          SITE="https://${OWNER}.github.io/${REPO}/"
+
+          {
+            echo "## Documentation published"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| **Site** | <${SITE}> |"
+            echo "| **Version** | \`${VERSION}\` |"
+            echo "| **Commit** | \`${SHA}\` |"
+            echo "| **Branch** | \`gh-pages\` (pushed by ${BOT}) |"
+            echo ""
+            echo "### API reference"
+            echo ""
+            echo "Built by docs.rs from the published crate, not by this workflow:"
+            echo ""
+            echo "- <https://docs.rs/${REPO}/${VERSION}>"
+            echo "- <https://docs.rs/${REPO}/latest>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Site:   ${SITE}"
+          echo "docs.rs: https://docs.rs/${REPO}/${VERSION}"

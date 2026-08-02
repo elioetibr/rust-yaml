@@ -15,10 +15,15 @@ config-variables:
   - RUNS_ON
   - RUNS_ON_ARM64
   # Referenced by linters.yml (the yamllint/markdown job's interpreter pin) and
-  # release.yml (the published crate name). Both are repository-level Actions
-  # variables; actionlint cannot see them over the API, so they are declared
-  # here for the same reason as the entries above.
-  - crate_name
+  # by release.yml/publish.yml (the published crate name). Both are
+  # repository-level Actions variables; actionlint cannot see them over the API,
+  # so they are declared here for the same reason as the entries above.
+  #
+  # `CRATES_NAME`, matching the spelling the workflows use. Declaring the wrong
+  # name does not merely miss a typo -- actionlint fails the run outright with
+  # "undefined configuration variable", so this list and the workflows have to
+  # agree exactly.
+  - CRATES_NAME
   - python_version
 
 paths:
