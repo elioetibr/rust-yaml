@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! `Serialize` / `Deserialize` impls for the public `Value` type.
 
 use crate::Value;
@@ -15,9 +19,9 @@ impl Serialize for Value {
             Value::Int(i) => ser.serialize_i64(*i),
             Value::Float(f) => ser.serialize_f64(*f),
             Value::String(s) => ser.serialize_str(s),
-            Value::Sequence(seq) => {
-                let mut s = ser.serialize_seq(Some(seq.len()))?;
-                for item in seq {
+            Value::Sequence(sequence) => {
+                let mut s = ser.serialize_seq(Some(sequence.len()))?;
+                for item in sequence {
                     s.serialize_element(item)?;
                 }
                 s.end()
