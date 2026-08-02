@@ -1,10 +1,6 @@
-[workspace.package]
-documentation = "https://docs.rs/rust-yaml"
-version = "1.1.0"
-edition = "2024"
-rust-version = "1.85"
-license = "MIT OR Apache-2.0"
-authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
 
 [package]
 name = "rust-yaml"
@@ -52,7 +48,8 @@ exclude = [
   "CLAUDE.md",
   "CODE_OF_CONDUCT.md",
   "CONTRIBUTING.md",
-  "Cargo.lock",  # For libraries
+  "Cargo.lock",
+  # For libraries
   "GitVersion.yml",
   "Makefile",
   "SECURITY.md",
@@ -69,19 +66,13 @@ exclude = [
   # Build artifacts and caches
   "target/",
   # Test files (tests/ should be included for cargo test)
-  "test-data/",
   # External conformance corpus lives in the dev-only `yaml-test-suite`
   # workspace member (publish = false there), so no exclude entry is needed.
 
   # Examples (optional, you might want to include these)
   # "examples/",
+  "test-data/",
 ]
-
-[workspace]
-members = ["yaml-test-suite"]
-# The fuzz harness is a standalone crate with its own `[workspace]`; exclude
-# it explicitly so root cargo commands never try to claim it as a member.
-exclude = ["fuzz"]
 
 [package.metadata.docs.rs]
 # Build docs with all features on docs.rs
@@ -95,6 +86,19 @@ rustdoc-args = [
 ]
 # Specify targets for docs.rs to build
 targets = ["x86_64-unknown-linux-gnu"]
+
+[workspace]
+members = ["yaml-test-suite"]
+# The fuzz harness is a standalone crate with its own `[workspace]`; exclude
+# it explicitly so root cargo commands never try to claim it as a member.
+exclude = ["fuzz"]
+[workspace.package]
+documentation = "https://docs.rs/rust-yaml"
+version = "1.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+authors = ["Elio Severo Junior <elioseverojunior@gmail.com>"]
 
 [lib]
 crate-type = ["lib"]
@@ -118,6 +122,54 @@ bench = false
 name = "rust-yaml"
 path = "src/main.rs"
 bench = false
+
+[features]
+# Async/await support
+async = ["futures", "tokio"]
+default = ["mmap", "preserve-order"]
+# All features
+full = ["async", "large-documents", "mmap", "serde_support"]
+# Support for large documents
+large-documents = []
+# Memory-mapped file support
+mmap = ["memmap2"]
+# Preserve document order
+preserve-order = []
+serde = ["dep:serde", "indexmap/serde"]
+# Serde integration
+serde_support = ["serde"]
+
+[dependencies]
+# Base64 encoding/decoding for binary data tags
+base64 = { version = ">=0.22,<1.0" }
+futures = { version = ">=0.3,<1.0", optional = true }
+# Core dependencies for YAML processing
+indexmap = { version = ">=2.0,<3.0", features = ["serde"] }
+# Memory mapping for large files
+memmap2 = { version = ">=0.9,<1.0", optional = true }
+# Regular expressions for schema validation
+regex = { version = ">=1.0,<2.0" }
+# Optional serde support
+serde = { version = ">=1.0,<2.0", features = ["derive"], optional = true }
+# Async support
+tokio = { version = ">=1.40,<2.0", features = [
+  "fs",
+  "io-util",
+  "rt",
+], optional = true }
+
+[dev-dependencies]
+# Testing and benchmarking
+criterion = { version = ">=0.8,<1.0", features = ["html_reports"] }
+pretty_assertions = { version = ">=1.4,<2.0" }
+proptest = { version = ">=1.2,<2.0" }
+serde_json = { version = ">=1.0,<2.0" }
+# Reference implementation for parity tests + benchmark comparison.
+# serde_yaml is archived but functional; dev-only.
+serde_yaml = { version = ">=0.9,<1.0" }
+tempfile = { version = ">=3.8,<4.0" }
+# For async tests
+tokio = { version = ">=1.40,<2.0", features = ["macros", "rt", "test-util"] }
 
 [[example]]
 name = "library_comparison"
@@ -172,50 +224,6 @@ required-features = ["serde"]
 harness = false
 name = "serde_dump"
 required-features = ["serde"]
-
-[dependencies]
-# Base64 encoding/decoding for binary data tags
-base64 = "0.22"
-futures = { version = "0.3", optional = true }
-# Core dependencies for YAML processing
-indexmap = { version = "2.0", features = ["serde"] }
-# Memory mapping for large files
-memmap2 = { version = "0.9", optional = true }
-# Regular expressions for schema validation
-regex = "1.0"
-# Optional serde support
-serde = { version = "1.0", features = ["derive"], optional = true }
-# Async support
-tokio = { version = "1.40", features = ["fs", "io-util", "rt"], optional = true }
-
-[dev-dependencies]
-# Testing and benchmarking
-criterion = { version = "0.8", features = ["html_reports"] }
-pretty_assertions = "1.4"
-proptest = "1.2"
-tempfile = "3.8"
-# For async tests
-tokio = { version = "1.40", features = ["macros", "rt", "test-util"] }
-# Reference implementation for parity tests + benchmark comparison.
-# serde_yaml is archived but functional; dev-only.
-serde_yaml = "0.9"
-serde_json = "1.0"
-
-[features]
-# Async/await support
-async = ["futures", "tokio"]
-default = ["mmap", "preserve-order"]
-# All features
-full = ["async", "large-documents", "mmap", "serde_support"]
-# Support for large documents
-large-documents = []
-# Memory-mapped file support
-mmap = ["memmap2"]
-# Preserve document order
-preserve-order = []
-serde = ["dep:serde", "indexmap/serde"]
-# Serde integration
-serde_support = ["serde"]
 
 [profile.release]
 lto = true
