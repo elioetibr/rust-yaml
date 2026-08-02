@@ -2,43 +2,33 @@
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-name: Deploy Documentation
+name: API Documentation
 
 on:
-  # Callable so release.yml can publish the API documentation as part of a
-  # release rather than duplicating the build. Kept dispatchable for out-of-band
-  # redeploys.
+  # Callable so gh-pages.yml's caller can order this ahead of the site build and
+  # reuse the artifact. No `dry-run` input: this workflow publishes nothing, so
+  # there is no deployment to suppress.
   workflow_call:
-    inputs:
-      dry-run:
-        description: "Build rustdoc but skip the Pages deployment"
-        required: false
-        default: false
-        type: boolean
   workflow_dispatch:
-    inputs:
-      dry-run:
-        description: "Build rustdoc but skip the Pages deployment"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
 
+# Keyed on the ref, not on "pages": this no longer contends for the Pages
+# deployment, it just should not build the same ref twice at once.
 concurrency:
-  group: "pages"
+  group: api-docs-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   build-docs:
     name: Build Documentation
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    # `contents: read` only -- this job checks out, compiles docs and uploads an
+    # artifact. It touches no Pages API, so the write scopes it used to request
+    # were unnecessary once the deploy job went away.
     permissions:
       contents: read
-      id-token: write
-      pages: write
-      pull-requests: write
     steps:
       # `continue-on-error` is what makes the `|| github.token` fallback below
       # reachable at all. Without it, a missing or rotated app credential aborts
@@ -92,36 +82,18 @@ jobs:
           chmod +x .github/scripts/create-docs-pages.sh
           .github/scripts/create-docs-pages.sh
 
-      - name: Setup Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      # A plain artifact, NOT upload-pages-artifact. This workflow no longer
+      # publishes anything: Pages serves the `gh-pages` branch, which gh-pages.yml
+      # writes. rustdoc is handed over as an artifact so that workflow can drop it
+      # at /api/ inside the site without running `cargo doc` a second time.
+      #
+      # Building it twice is not merely slower -- two builds can see two
+      # checkouts, so the API pages could describe a different commit than the
+      # site around them. One build, consumed once, makes that impossible.
+      - name: Upload rustdoc artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          # rustdoc only. This briefly pointed at an assembled bundle that also
-          # carried the VitePress site; that made this workflow and the site
-          # workflow compete for the one Pages deployment a repository gets.
-          path: "target/doc"
-
-  deploy:
-    name: Deploy to GitHub Pages
-    # A dry run still exercises build-docs, which is where rustdoc can actually
-    # break; only the publish is skipped.
-    if: ${{ !inputs.dry-run }}
-    # Declared per-job, not inherited: `deploy-pages` mints an OIDC token and
-    # writes a Pages deployment, and the workflow-level default here is
-    # `contents: read`. Job permissions do not propagate from `build-docs`, so
-    # without this block the deploy fails on a permissions error after a
-    # successful build.
-    permissions:
-      id-token: write
-      pages: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
-    needs: build-docs
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+          name: rustdoc
+          path: target/doc
+          retention-days: 7
+          if-no-files-found: error

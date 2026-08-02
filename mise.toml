@@ -1304,7 +1304,11 @@ cargo doc --all-features --no-deps --document-private-items
 # docs/, which is the other half of what GitHub Pages serves.
 
 [tasks."docs:site"]
-alias = ["site"]
+# `docs:build` is the name gh-pages.yml calls, matching the other repositories;
+# `site` is the short local one. NOT `doc:build` -- that is an alias of `doc`,
+# which runs cargo doc, so the two names are one character apart and build
+# entirely different things.
+alias = ["site", "docs:build"]
 description = "Build the VitePress documentation site (docs/) into docs/.vitepress/dist"
 shell = "bash -c"
 usage = '''
