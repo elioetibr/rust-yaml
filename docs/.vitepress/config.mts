@@ -9,7 +9,16 @@ import { fileURLToPath } from "node:url";
 import { mermaidMarkdown, mermaidVite } from "./mermaid";
 import { rustdocDev } from "./rustdoc-dev";
 
-const REPO = "https://github.com/elioetibr/rust-yaml";
+// Derived from GITHUB_REPOSITORY ("owner/name" inside Actions) rather than
+// hardcoded, so a build under a different owner -- a fork standing in as a
+// staging deploy -- produces edit links, licence links and a base that point at
+// the repository actually being built. Falls back to the canonical repo for
+// local builds, where the variable is unset.
+const SLUG = process.env.GITHUB_REPOSITORY ?? "elioetibr/rust-yaml";
+const REPO = `https://github.com/${SLUG}`;
+// `?? ` satisfies noUncheckedIndexedAccess; a slug without "/" is not a shape
+// Actions produces, but the compiler cannot know that.
+const REPO_NAME = SLUG.split("/")[1] ?? "rust-yaml";
 
 // GitHub project pages serve under `/<repo>/`, so the base has to match or every
 // asset 404s. A custom domain serves from the root instead, hence the override:
@@ -19,7 +28,7 @@ const REPO = "https://github.com/elioetibr/rust-yaml";
 // both starts and ends with `/`, and every `head` entry below interpolates it
 // directly — without it, `${base}favicon.svg` resolves to the single path
 // segment `/rust-yamlfavicon.svg`.
-const base = process.env.DOCS_BASE ?? "/rust-yaml/";
+const base = process.env.DOCS_BASE ?? `/${REPO_NAME}/`;
 
 // Pinned rather than left on Vite's 5173 default, which any other checkout on
 // this machine also claims. `strictPort` makes a collision fail loudly instead
