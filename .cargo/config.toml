@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 # Local developer tooling. Committed so `cargo flame-*` works for everyone.
 # These aliases only run when invoked explicitly — they do not affect normal
 # `cargo build` / `cargo test` / CI behavior.
@@ -12,6 +16,26 @@
 # `--profile-time N` puts Criterion into profiler mode: it runs the selected
 # benchmark for N seconds with no statistical analysis or plotting — exactly
 # what an external profiler wants. The trailing regex filters to OUR code path.
+
+[build]
+# Workspace warning gate. `-D warnings` turns every rustc lint into a hard error
+# when compiling a WORKSPACE crate (build / test / clippy / check, locally and in
+# CI). Cargo passes `--cap-lints allow` to registry & git dependencies, so this
+# never fails on third-party crates — only on our own code.
+#
+# This replaces the `RUST_FLAGS: "-D warnings"` that used to sit in ci.yml:
+# `RUST_FLAGS` is not a real variable (the env var is `RUSTFLAGS`), so that gate
+# was a silent no-op. Centralizing it here fixes the typo and de-duplicates it.
+#
+# To make this CI-only instead (e.g. if warnings-as-errors is too aggressive for
+# local/IDE iteration), delete this line and set `RUSTFLAGS: -D warnings` in the
+# CI workflow env instead.
+rustflags = ["-D", "warnings"]
+
+# Documentation lint gate: promotes rustdoc lints (broken_intra_doc_links,
+# redundant_explicit_links, bare_urls, invalid_html_tags, …) to hard errors so
+# broken docs fail the build instead of printing an ignorable warning.
+rustdocflags = ["-D", "warnings"]
 
 [alias]
 # from_str hot path (issue raised in PR #67: ~1.5-1.8x slower than serde_yaml).
