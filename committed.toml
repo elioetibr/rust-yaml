@@ -1,61 +1,31 @@
-# Conventional Commits enforcement for rust-yaml (Rust-native).
-# Replaces the previous Node.js-based commitlint setup.
+# SPDX-FileCopyrightText: COMPLY contributors
 #
-# Filename note: `committed` auto-discovers `committed.toml` (no leading
-# dot) in the repo root. Don't rename to `.committed.toml` — the tool
-# will silently fall back to defaults if the file is hidden.
-#
-# Schema reference: https://github.com/crate-ci/committed
-# Install:          cargo install committed   (or: cargo binstall committed)
+# SPDX-License-Identifier: MIT OR Apache-2.0
 
+# @generated from commit-types.toml by scripts/commit-config.py -- DO NOT EDIT
+# Regenerate with `mise run commit-config`; `mise run commit-config:check` guards drift.
+#
+# committed ~ https://github.com/crate-ci/committed
 style = "conventional"
-
-# Type allowlist. Keep in sync with:
-#   - GitVersion.yml `major-version-bump-message`
-#   - .gitmessage (template comments)
-allowed_types = [
-  "init",
-  "build",
-  "ci",
-  "chore",
-  "docs",
-  "feat",
-  "fix",
-  "perf",
-  "refactor",
-  "release",
-  "revert",
-  "style",
-  "test",
-]
-
-# Length budgets (mirror prior commitlint rules)
-#
-# `committed`'s `subject_length` bounds the *entire* first line —
-# including `type(scope)!: ` — so it maps to the old commitlint
-# `header-max-length` (100), NOT `subject-max-length` (which only
-# bounded the post-prefix tail at 72). Several legitimate commits
-# in this branch's history are 78–86 chars total, so 100 is the
-# minimum that preserves existing commits without rewriting them.
-#
-#   subject_length  ← was: header-max-length    [2, "always", 100]
-#   line_length     ← was: body-max-line-length [2, "always", 100]
-subject_length = 100
-line_length = 100
-
-# Style — preserve parity with this project's existing commit history.
-# Lowercase subjects are the established convention here, and prior
-# commits intentionally mix imperative / descriptive moods
-# (e.g. `release(1.0.0)!: pre-compile test artifacts in ci target`),
-# so we don't enforce capitalization or imperative voice.
+subject_length = 50
 subject_capitalized = false
 subject_not_punctuated = true
-imperative_subject = false
-
-# Disallow fixup/WIP commits in any validated range.
-no_fixup = true
+imperative_subject = true
+line_length = 72
 no_wip = true
-
-# Scope is informational, not gated. Omitting `allowed_scopes`
-# accepts any scope, including version tags (`1.1`, `1.0.0`),
-# tooling names (`makefile`, `commitlint`), and ad-hoc labels.
+no_fixup = true
+merge_commit = true
+allowed_types = [
+  "feat",
+  "fix",
+  "refactor",
+  "docs",
+  "perf",
+  "style",
+  "test",
+  "chore",
+  "ci",
+  "build",
+  "init",
+  "revert",
+]

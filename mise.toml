@@ -1661,6 +1661,84 @@ printf '%s\n' "$msg" | committed --commit-file -
 echo "✅ Commit message format is valid"
 '''
 
+[tasks."commit:config"]
+alias = ["commit-config"]
+description = "Regenerate committed.toml, cliff.toml's parsers and .gitmessage from commit-types.toml (the single source of truth for commit types)"
+shell = "bash -c"
+usage = '''
+flag "-v --verbose" help="Trace each command before running it (set -x)"
+'''
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
+
+python3 scripts/commit-config.py generate
+'''
+
+[tasks."commit:config:check"]
+alias = ["commit-config:check"]
+description = "Fail if any file generated from commit-types.toml is stale (the CI/pre-commit drift guard)"
+shell = "bash -c"
+usage = '''
+flag "-v --verbose" help="Trace each command before running it (set -x)"
+'''
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
+
+# The generated regions live between sentinel markers inside otherwise
+# hand-maintained files, so this compares only those regions and prints a diff
+# of whatever drifted. `mise run commit:config` writes the fix.
+python3 scripts/commit-config.py check
+'''
+
+[tasks.gitignore]
+alias = ["ignorefile"]
+description = "Regenerate .gitignore from ignorefile.toml (the single source of truth for ignore rules)"
+shell = "bash -c"
+usage = '''
+flag "-v --verbose" help="Trace each command before running it (set -x)"
+'''
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
+
+ignorefile generate
+'''
+
+[tasks."gitignore:check"]
+alias = ["ignorefile:check"]
+description = "Validate ignorefile.toml without writing .gitignore (the CI/pre-commit drift guard)"
+shell = "bash -c"
+usage = '''
+flag "-v --verbose" help="Trace each command before running it (set -x)"
+'''
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
+
+# Both sides matter: `validate` catches a malformed ignorefile.toml, and the
+# regenerate-and-diff catches a hand-edit of the generated .gitignore, which is
+# the direction the drift actually tends to take.
+ignorefile validate
+before="$(cat .gitignore)"
+ignorefile generate >/dev/null
+if [ "$before" != "$(cat .gitignore)" ]; then
+    printf '%s\n' "$before" > .gitignore
+    echo "❌ .gitignore is out of sync with ignorefile.toml — run 'mise run gitignore'" >&2
+    exit 1
+fi
+echo "✅ .gitignore matches ignorefile.toml"
+'''
+
 [tasks.changelog]
 alias = ["cliff", "changelog:build"]
 description = "Regenerate CHANGELOG.md from the commit history with git-cliff (config in cliff.toml). Never hand-edit CHANGELOG.md"

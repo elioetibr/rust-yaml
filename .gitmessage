@@ -9,19 +9,21 @@
 # <footer>
 
 # Type can be:
-#   feat     (new feature)
-#   fix      (bug fix)
-#   docs     (changes to documentation)
-#   style    (formatting, missing semi colons, etc; no code change)
-#   refactor (refactoring production code)
-#   test     (adding tests, refactoring test; no production code change)
-#   chore    (updating build tasks, package manager configs, etc; no production code change)
-#   perf     (performance improvements)
-#   ci       (changes to CI configuration files and scripts)
-#   build    (changes that affect the build system or external dependencies)
-#   revert   (reverts a previous commit)
-#   release  (release / version-bump commit)
-#   init     (bootstrap / initial commit)
+# >>> commit-config:types (generated from commit-types.toml -- do not edit) >>>
+# Type can be:
+#   feat      (a new feature)
+#   fix       (a bug fix)
+#   refactor  (a change that neither fixes a bug nor adds a feature)
+#   docs      (documentation only changes)
+#   perf      (a performance improvement)
+#   style     (formatting, whitespace; no code-behavior change)
+#   test      (adding or correcting tests; no production code change)
+#   chore     (tooling, configs, housekeeping; no production code change)
+#   ci        (changes to CI configuration files and scripts)
+#   build     (changes to the build system or external dependencies)
+#   init      (initialize a repository (allowed so a fresh repo can bootstrap))
+#   revert    (revert a previous commit)
+# <<< commit-config:types <<<
 #
 # Scope is optional and is informational (not gated) — e.g.:
 #   parser, emitter, scanner, composer, constructor, lib, cli, docs,
