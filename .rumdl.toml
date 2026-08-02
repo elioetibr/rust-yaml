@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# rumdl configuration ~ https://github.com/rvben/rumdl
+#
+# The Markdown linter of record for this repo, replacing .markdownlint.json (and
+# the ~110 lines of hand-rolled awk in mise.toml that only ever implemented
+# MD022/MD031/MD032). Unlike yamllint-rs, rumdl DOES auto-discover this file:
+# `rumdl config file` prints the path it loaded, and `rumdl config` shows every
+# key with its provenance, so the discovery is verifiable rather than assumed.
+
+# Inherit settings from another config file (relative to this file's directory)
+# extends = "../base.rumdl.toml"
+
+# Global configuration options
+[global]
+# List of rules to disable.
+# MD060 (table-column-style) is opt-in upstream, so this is belt-and-braces: it
+# keeps the rule off if a future rumdl ever turns it on by default. Keep this
+# key inside [global] -- stranded below the rule-comment block it silently
+# reparents into the first [MDxxx] table anyone adds above it.
+disable = ["MD060"]
+
+# List of rules to enable exclusively (replaces defaults; only these rules will run)
+# enable = ["MD001", "MD003", "MD004"]
+
+# Additional rules to enable on top of defaults (additive, does not replace)
+# Use this to activate opt-in rules like MD060, MD063, MD072, MD073, MD074
+# extend-enable = ["MD060", "MD063"]
+
+# Additional rules to disable on top of the disable list (additive)
+# extend-disable = ["MD041"]
+
+# List of file/directory patterns to include for linting (if provided, only these will be linted)
+# include = [
+#    "docs/*.md",
+#    "src/**/*.md",
+#    "README.md"
+# ]
+
+# List of file/directory patterns to exclude from linting
+exclude = [
+  # Build output and agent scratch state.
+  "target",
+  ".remember",
+
+  # The upstream yaml/yaml-test-suite submodule is a third-party conformance
+  # corpus — never lint (or reformat) vendored content.
+  "yaml-test-suite/data",
+
+  # Generated from cliff.toml by `mise run changelog`; hand-editing it is
+  # explicitly out of bounds, so linting it would only produce unfixable noise.
+  "CHANGELOG.md",
+
+  # The commit-message template is Markdown-ish but is consumed by git, not a
+  # renderer, and its leading `#` lines are comments rather than headings.
+  ".gitmessage",
+]
+
+# Respect .gitignore files when scanning directories (default: true)
+respect-gitignore = true
+
+# Markdown flavor/dialect (uncomment to enable)
+# Options: standard (default), gfm, commonmark, mkdocs, mdx, pandoc, quarto, obsidian, kramdown, azure_devops, myst
+# flavor = "mkdocs"
+
+# Rule-specific configurations (uncomment and modify as needed)
+
+# [MD003]
+# style = "atx"  # Heading style (atx, atx_closed, setext)
+
+# [MD004]
+# style = "asterisk"  # Unordered list style (asterisk, plus, dash, consistent)
+
+# [MD007]
+# indent = 4  # Unordered list indentation
+
+# [MD013]
+# line-length = 100  # Line length
+# code-blocks = false  # Exclude code blocks from line length check
+# tables = false  # Exclude tables from line length check
+# headings = true  # Include headings in line length check
+
+# [MD044]
+# names = ["rumdl", "Markdown", "GitHub"]  # Proper names that should be capitalized correctly
+# code-blocks = false  # Check code blocks for proper names (default: false, skips code blocks)
+
+# --- GITHUB ACCESSIBILITY & OPINION PARITY (replaces the @github plugin) ---
+# Both rules below are already on by default; pinning them explicitly keeps the
+# gate from weakening if an upstream default ever flips.
+
+[MD045]
+# Replaces GH001 & GH003: images must carry non-empty alt text
+enabled = true
+
+[MD059]
+# Replaces GH002: rejects uninformative link text such as "click here" or "link".
+# This was previously written as [MD058], which is "tables should be surrounded
+# by blank lines" -- an unrelated rule -- so GH002 parity was never actually
+# configured here. It held only because MD059 is on by default.
+enabled = true
+
+# --- LOCAL OVERRIDES ---
+# Configure explicit rules with nested tables
+[MD013]
+# MD013 / Line Length: OFF (Set to 0 for unlimited)
+line_length = 0
+
+[MD004]
+# MD004 / Unordered List Style: DASH
+style = "dash"
+
+[MD024]
+# MD024 / Duplicate Headings: allow repeats under DIFFERENT parents.
+# docs/MIGRATION_GUIDE.md is one `## Migration from <library>` section per
+# library, each with its own `### Before` / `### After` / `### Migration
+# Benefits`. Those repeats are the structure, not a defect — uniquifying them
+# ("Before (yaml-rust)", "Before (serde_yml)"…) would add noise and break the
+# parallelism that makes the guide scannable. Sibling duplicates are still
+# rejected, which is what actually breaks anchor links.
+siblings_only = true

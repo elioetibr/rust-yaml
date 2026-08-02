@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 # gitleaks configuration.
 #
 # Extends the built-in ruleset and excludes the generated ncc bundle from
@@ -13,7 +17,13 @@ title = "docker-tag-generator-action"
 useDefault = true
 
 [allowlist]
-description = "Ignore the generated ncc bundle (vendored dependency code)"
-paths = [
-  '''^target/''',
-]
+description = "Machine-generated build output — never source, and a reliable false-positive generator"
+# Path exclusion is carried by .gitignore, NOT by this list: `gitleaks dir`
+# walks the tree gitignore-aware, so an ignored directory is never read at all.
+# That distinction is worth the comment — compiled .o files under a checked-out
+# worktree (.claude/worktrees/<branch>/target/) carry high-entropy mangled Rust
+# symbols that gitleaks reports as `generic-api-key`, and two of them blocked a
+# commit here. Ignoring `.claude/` took the scan from 1.42 GB / 4m48s / 2 false
+# positives to 14.5 MB / 16s / 0. Adding those paths below instead would still
+# have read all 1.42 GB before discarding the findings.
+paths = ['''^target/''']

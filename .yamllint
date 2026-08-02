@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# yamllint-rs configuration ~ https://github.com/AvnerCohen/yamllint-rs
+#
+# THE FILENAME IS LOAD-BEARING — do not rename this file.
+# yamllint-rs hardcodes a single config filename, `.yamllint` (extensionless),
+# and walks up from the process CWD looking for exactly that:
+#
+#     // src/lib.rs, discover_config_file_from_dir()
+#     let config_path = dir.join(".yamllint");
+#
+# There is no precedence list. `.yamllint.yaml`, `.yamllint.yml`, `yamllint.yml`
+# and `yamllint.yaml` are all silently ignored — no warning, the config simply
+# never applies and every rule falls back to its default.
+#
+# Because that walk continues to the filesystem root, a stray ~/.yamllint could
+# win when the binary is invoked from an unexpected directory. The `yamllint` /
+# `yamllint:fix` mise tasks therefore still name it explicitly, and a by-hand
+# invocation should too:
+#
+#     yamllint-rs -c .yamllint <paths>
+#
+# WHAT ACTUALLY TAKES EFFECT (verified against yamllint-rs 0.1.4 source):
+#
+#   * `extends:` is a required sentinel but its VALUE is never read — the loader
+#     only checks `.is_some()`. Without a top-level `extends:` key the yamllint-
+#     compatible parser never engages and loading fails with "missing field
+#     `global`". `default` vs `relaxed` vs anything else are identical.
+#   * Only THREE rules honour their options — `line-length`, `indentation` and
+#     `trailing-spaces` (see RuleFactory::create_rule_with_config, which has
+#     exactly those match arms and `_ => self.create_rule(rule_id)` for the
+#     rest). Options on any other rule parse without error and do nothing.
+#   * enable/disable and `level:` DO work for every rule, so anything below that
+#     is not one of those three is expressed as a plain disable.
+#   * `ignore:` does literal matching only — equality, `endswith("/" + pattern)`,
+#     basename equality, and trailing-slash directory prefix. Globs such as
+#     `**/foo/**` or `*.sops.yaml` match NOTHING. Every entry below is written as
+#     a literal path or a directory prefix for that reason.
+#
+# yamllint-rs is strict by default: it exits 1 on any finding, warnings included,
+# so there is no `--strict` flag to pass.
+
+extends: default
+
+rules:
+  # ---- Options honoured -----------------------------------------------------
+
+  # .editorconfig sets max_line_length=200.
+  line-length:
+    max: 200
+
+  trailing-spaces:
+    allow: false
+
+  # ---- Enable/disable only (options here would be silently ignored) ---------
+
+  # DISABLED because the rule is broken for nested sequences, not because we do
+  # not care about indentation. Minimal reproduction:
+  #
+  #     root:
+  #       child:
+  #         seq:
+  #           - a          <- accepted
+  #           - b          <- "wrong indentation: expected 2 but found 6"
+  #
+  # Both items sit at 6 spaces under `seq:` at 4, which is the canonical form for
+  # indent-sequences: true, and Python yamllint accepts it. The proof that this is
+  # a bug rather than a stylistic disagreement is that yamllint-rs accepts the
+  # FIRST item and rejects the second at identical indentation — it loses the
+  # parent context after the first entry. Reproduced against 0.1.4 on GitVersion.yml
+  # (3 hits) and on the `ignore: |` block scalar in this very file.
+  #
+  # Indentation is still enforced repo-wide by .editorconfig (2 spaces).
+  # Re-enable with `spaces: 2` / `indent-sequences: true` once upstream fixes it.
+  indentation: disable
+
+  # GitHub Actions spells its trigger block `on:`, which YAML resolves to the
+  # boolean true. Python yamllint handles this with `truthy: {check-keys: false}`,
+  # but that option is inert here, so the rule is disabled outright. yamllint-rs
+  # additionally false-positives `truthy` on plain integers (`x: 1`), which would
+  # make the rule unusable regardless.
+  truthy: disable
+
+  # No file in this repo uses the `---` document-start marker.
+  document-start: disable
+
+  # Comment indentation is relaxed for workflow readability.
+  comments-indentation: disable
+
+  # DISABLED because the rule does not respect block scalars. Reproduction:
+  #
+  #     steps:
+  #       - run: |
+  #           echo "## a heading, not a comment"    <- flagged (comments)
+  #       - uses: foo@sha # v1                      <- flagged (comments)
+  #
+  # The first hit is literal string content inside a `run: |` block, where `#`
+  # carries no YAML meaning at all; yamllint-rs flags it anyway. Across .github/
+  # that single defect accounts for the bulk of 125 findings.
+  #
+  # The second hit is legitimate — yamllint's default wants 2 spaces before an
+  # inline comment and the SHA-pinned `uses:` lines have 1 — but `comments` is
+  # not one of the three rules whose options are honoured, so
+  # `min-spaces-from-content: 1` would parse and do nothing. The rule is
+  # therefore all-or-nothing, and "nothing" is the only setting that is not
+  # dominated by false positives.
+  comments: disable
+
+  # GitVersion.yml writes empty collections as `{ }` and `[ ]`. Python yamllint
+  # tolerated that via min/max-spaces-inside-empty; those options do nothing here,
+  # so both rules are disabled rather than left to fail on a file we cannot change.
+  braces: disable
+  brackets: disable
+
+  new-line-at-end-of-file: enable
+
+# Literal paths and directory prefixes only — see the glob caveat above.
+ignore: |
+  target/
+  yaml-test-suite/data/
