@@ -5,24 +5,25 @@
 name: Deploy Documentation
 
 on:
-  push:
-    branches: [main]
-    paths:
-      # `src/**` and `Cargo.toml` drive the rustdoc half of the bundle; `docs/**`
-      # drives the VitePress half. Before docs/** was listed here, editing a
-      # guide published nothing -- the workflow simply never ran.
-      - "src/**"
-      - "Cargo.toml"
-      - "docs/**"
-      - ".github/workflows/docs.yml"
-      - ".github/scripts/create-docs-pages.sh"
+  # Callable so release.yml can publish the site as part of a release rather
+  # than duplicating the build. Kept dispatchable for out-of-band redeploys.
+  workflow_call:
+    inputs:
+      dry-run:
+        description: "Assemble the bundle but skip the Pages deployment"
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Assemble the bundle but skip the Pages deployment"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
-  id-token: write
-  pages: write
-  pull-requests: write
 
 concurrency:
   group: "pages"
@@ -32,6 +33,11 @@ jobs:
   build-docs:
     name: Build Documentation
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      id-token: write
+      pages: write
+      pull-requests: write
     steps:
       # `continue-on-error` is what makes the `|| github.token` fallback below
       # reachable at all. Without it, a missing or rotated app credential aborts
@@ -44,7 +50,7 @@ jobs:
       - name: Generate GitHub App Token
         id: app-token
         continue-on-error: true
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -52,7 +58,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -65,18 +71,18 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
       # The VitePress half of the bundle needs a JS runtime. `bun-version-file`
       # reads docs/.bun-version so CI and `mise run docs:site` cannot drift onto
       # different bun releases.
       - name: Install Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: "docs/.bun-version"
 
       - name: Cache cargo registry
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
@@ -92,10 +98,10 @@ jobs:
           .github/scripts/create-docs-pages.sh
 
       - name: Setup Pages
-        uses: actions/configure-pages@v6
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           # The assembled bundle (VitePress at the root, rustdoc under api/),
           # not target/doc -- uploading the latter would publish the API
@@ -104,6 +110,17 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
+    # A dry run still exercises build-docs, which is where the site can actually
+    # break; only the publish is skipped.
+    if: ${{ !inputs.dry-run }}
+    # Declared per-job, not inherited: `deploy-pages` mints an OIDC token and
+    # writes a Pages deployment, and the workflow-level default here is
+    # `contents: read`. Job permissions do not propagate from `build-docs`, so
+    # without this block the deploy fails on a permissions error after a
+    # successful build.
+    permissions:
+      id-token: write
+      pages: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -112,4 +129,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

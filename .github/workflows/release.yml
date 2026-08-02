@@ -52,6 +52,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -101,6 +102,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -122,7 +124,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
       - name: Crates.io Authentication
         id: crates-auth
@@ -178,6 +180,14 @@ jobs:
             echo "⚠️ Version not yet indexed, but should appear soon"
           fi
 
+  # Delegates to docs.yml rather than restating the build. The steps this
+  # replaced published `target/doc` alone, which would have overwritten the
+  # VitePress site with rustdoc-only output on every release -- the two
+  # pipelines share one Pages deployment, so whichever ran last won.
+  #
+  # `cargo set-version` is not carried over: this workflow runs on a published
+  # release, so the checked-out tag already carries the released version in
+  # Cargo.toml and rustdoc reads it from there.
   publish-docs:
     name: Publish Documentation
     needs: [validate, publish-crate]
@@ -185,71 +195,14 @@ jobs:
       success() &&
       needs.publish-crate.result == 'success' &&
       needs.validate.outputs.should_publish == 'true'
-    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
-    permissions:
-      contents: write
-      pages: write
-      id-token: write
-    steps:
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.CLIENT_ID }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          private-key: ${{ secrets.PRIVATE_KEY }}
-
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Use PR head SHA on pull_request events to avoid synthetic merge commit
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: "0"
-          fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
-          submodules: true
-
-      - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
-
-      - name: Install cargo-edit
-        run: cargo install cargo-edit
-
-      - name: Set version
-        run: cargo set-version ${{ needs.validate.outputs.version }}
-
-      - name: Build documentation
-        run: |
-          echo "📚 Building documentation..."
-          cargo doc --all-features --no-deps
-
-          # Create root index.html redirect
-          echo '<meta http-equiv="refresh" content="0; url=rust_yaml/index.html">' > target/doc/index.html
-
-          # Add version info
-          echo "Documentation built for version ${{ needs.validate.outputs.version }}" > target/doc/VERSION
-
-      - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: target/doc
-
-      - name: Deploy to GitHub Pages
-        if: github.event.inputs.dry_run != 'true'
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
-        with:
-          token: ${{ steps.app-token.outputs.token || github.token }}
-
-      - name: Documentation URLs
-        run: |
-          echo "📚 Documentation URLs:"
-          echo "  - docs.rs: https://docs.rs/rust-yaml/${{ needs.validate.outputs.version }}"
-          echo "  - Latest: https://docs.rs/rust-yaml/latest"
-          echo "  - GitHub Pages: https://${{ github.repository_owner }}.github.io/rust-yaml/"
+    uses: ./.github/workflows/docs.yml
+    with:
+      dry-run: ${{ github.event.inputs.dry_run == 'true' }}
+    # Reusable workflows receive no secrets unless passed. Without this the
+    # app-token step sees an empty PRIVATE_KEY; `continue-on-error` keeps the
+    # job alive on `github.token`, so the failure would be silent rather than
+    # loud -- the docs would still publish, just without the app identity.
+    secrets: inherit
 
   summary:
     name: Publication Summary
