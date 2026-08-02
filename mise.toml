@@ -1337,8 +1337,10 @@ set -Eeuo pipefail
 if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
 
 echo "📚 Starting VitePress dev server..."
-# /api/ is absent here: rustdoc is grafted in only by the Pages assembly below,
-# so the API nav entry and hero button 404 under this server. Expected.
+# `bun run dev` fires the `predev` script first, which runs this file's `docs`
+# task to populate target/doc. The dev server then serves it at /api/ through
+# the rustdocDev plugin in .vitepress/config.mts, so the API nav entry resolves
+# here exactly as it does on the deployed site.
 bun install --cwd docs --frozen-lockfile
 bun run --cwd docs dev
 '''

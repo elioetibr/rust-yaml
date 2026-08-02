@@ -4,7 +4,10 @@
 
 import { defineConfig } from "vitepress";
 
+import { fileURLToPath } from "node:url";
+
 import { mermaidMarkdown, mermaidVite } from "./mermaid";
+import { rustdocDev } from "./rustdoc-dev";
 
 const REPO = "https://github.com/elioetibr/rust-yaml";
 
@@ -62,6 +65,16 @@ export default defineConfig({
     // way round so a future key added there does not silently outrank the ports.
     ...mermaidVite,
     server: { port, strictPort: true },
+    // Dev only -- serves cargo's target/doc at `${base}api/` so the API nav
+    // entry resolves here exactly as it does on the deployed site. The
+    // production bundle still comes from create-docs-pages.sh; see
+    // ./rustdoc-dev.ts for why this must not apply at build time.
+    plugins: [
+      rustdocDev(
+        base,
+        fileURLToPath(new URL("../../target/doc", import.meta.url)),
+      ),
+    ],
   },
 
   head: [
@@ -117,9 +130,9 @@ export default defineConfig({
       // router intercepts same-origin clicks and would 404 on a path absent from
       // its route map, but it skips any anchor carrying a `target` attribute
       // (client/app/router.js checks `link.hasAttribute('target')`), so this
-      // falls through to a normal navigation. `/api/` only exists in the
-      // deployed bundle that docs.yml assembles -- it 404s under `bun run dev`,
-      // which is expected and is why nothing local depends on it.
+      // falls through to a normal navigation. On the deployed site /api/ comes
+      // from create-docs-pages.sh; under `bun run dev` the rustdocDev plugin
+      // above serves the same tree, so this entry resolves in both.
       { text: "API", link: "/api/", target: "_self" },
       {
         text: "Repository",

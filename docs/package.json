@@ -11,6 +11,8 @@
     "typescript": "^6.0.3"
   },
   "scripts": {
+    "rustdoc": "mise run docs",
+    "predev": "bun run rustdoc",
     "dev": "vitepress dev .",
     "build": "vitepress build .",
     "preview": "vitepress preview . --port ${DOCS_PORT:-5273}",
