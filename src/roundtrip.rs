@@ -160,7 +160,16 @@ impl RoundTripDocument {
                 ),
             ));
         }
-        Ok(docs.pop().expect("checked above"))
+        // `ok_or_else` rather than `expect`: the length check above already
+        // proves this is `Some`, but a panic here would abort the process
+        // rather than surface an error (see `[profile.release] panic = "abort"`),
+        // so the unreachable branch is spelled as an error instead.
+        docs.pop().ok_or_else(|| {
+            Error::parse(
+                Position::new(),
+                "internal: single-document check passed but no document was produced".to_string(),
+            )
+        })
     }
 
     /// Parse a (possibly multi-document) YAML stream.
