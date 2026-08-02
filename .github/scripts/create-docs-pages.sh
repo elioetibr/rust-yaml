@@ -1,80 +1,75 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
 
-# Build docs with all features
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Assembles the GitHub Pages bundle from two independent generators:
+#
+#   VitePress (docs/)  -> site root   the hand-written guides and reference
+#   rustdoc            -> /api/       the generated API documentation
+#
+# They are merged into one directory rather than deployed separately because a
+# repository gets exactly one Pages deployment. Nesting rustdoc under /api/
+# keeps every page it previously published reachable (only the prefix moves)
+# while the VitePress home page takes the root.
+
+set -Eeuo pipefail
+
+# Every path below is relative to the repository root, so anchor there instead of
+# trusting the caller's working directory.
+cd "$(git rev-parse --show-toplevel)"
+
+OUT="target/gh-pages"
+
+echo "==> Building VitePress site"
+# `--frozen-lockfile` is the point of running install here at all: it fails when
+# bun.lock and package.json disagree, so a dependency edit that was never locked
+# breaks the docs build instead of quietly resolving to something else in CI.
+bun install --cwd docs --frozen-lockfile
+bun run --cwd docs build
+
+echo "==> Building rustdoc"
 cargo doc --all-features --no-deps
 
-# Create index redirect
-cat > target/doc/index.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>rust-yaml Documentation</title>
-  <meta http-equiv="refresh" content="0; url=rust_yaml/index.html">
-  <link rel="canonical" href="rust_yaml/index.html">
-</head>
-<body>
-  <p>Redirecting to <a href="rust_yaml/index.html">documentation</a>...</p>
-</body>
+echo "==> Assembling $OUT"
+# Removed rather than overwritten: a page deleted from docs/ must disappear from
+# the bundle, and cp alone would leave the previous run's copy in place. This
+# matters locally; CI always starts from an empty target/.
+rm -rf "$OUT"
+mkdir -p "$OUT"
+
+# `dist/.` (not `dist`) copies the directory *contents* into $OUT rather than
+# nesting a `dist/` inside it.
+cp -R docs/.vitepress/dist/. "$OUT/"
+cp -R target/doc "$OUT/api"
+
+# rustdoc's own root listing is unhelpful when the workspace has more than one
+# member, so send /api/ straight to the library. Written unconditionally:
+# whether cargo emits target/doc/index.html varies by version, and this must not
+# depend on that.
+cat > "$OUT/api/index.html" << 'EOF'
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>rust-yaml API documentation</title>
+    <meta http-equiv="refresh" content="0; url=rust_yaml/index.html" />
+    <link rel="canonical" href="rust_yaml/index.html" />
+  </head>
+  <body>
+    <p>
+      Redirecting to the
+      <a href="rust_yaml/index.html">rust-yaml API documentation</a>.
+    </p>
+  </body>
 </html>
 EOF
 
-# Add .nojekyll to prevent GitHub Pages from ignoring files starting with underscore
-touch target/doc/.nojekyll
+# Without this, Pages runs the bundle through Jekyll, which drops every path with
+# a leading underscore -- that silently guts rustdoc's asset directories.
+touch "$OUT/.nojekyll"
 
-# Create a simple landing page
-cat > target/doc/landing.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>rust-yaml - Fast, Safe YAML for Rust</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }
-    h1 { color: #333; }
-    .links { margin: 2rem 0; }
-    .links a { display: inline-block; margin: 0.5rem 1rem 0.5rem 0; color: #0969da; text-decoration: none; }
-    .links a:hover { text-decoration: underline; }
-    .badges { margin: 1rem 0; }
-    .badges img { margin-right: 0.5rem; }
-  </style>
-</head>
-<body>
-  <h1>rust-yaml</h1>
-  <p>A fast, safe YAML 1.2 library for Rust with full specification support.</p>
-
-  <div class="badges">
-    <img src="https://img.shields.io/crates/v/rust-yaml.svg" alt="Crates.io">
-    <img src="https://img.shields.io/docsrs/rust-yaml" alt="docs.rs">
-    <img src="https://img.shields.io/crates/l/rust-yaml.svg" alt="License">
-  </div>
-
-  <div class="links">
-    <a href="rust_yaml/index.html">📚 API Documentation</a>
-    <a href="https://github.com/elioetibr/rust-yaml">📦 GitHub Repository</a>
-    <a href="https://crates.io/crates/rust-yaml">🦀 Crates.io</a>
-    <a href="https://docs.rs/rust-yaml">📖 docs.rs</a>
-  </div>
-
-  <h2>Features</h2>
-  <ul>
-    <li>Full YAML 1.2 specification support</li>
-    <li>Safe by default with configurable limits</li>
-    <li>Zero-copy parsing where possible</li>
-    <li>Streaming parser for large documents</li>
-    <li>Preserve formatting for round-trip operations</li>
-    <li>Comprehensive error reporting with positions</li>
-  </ul>
-
-  <h2>Quick Start</h2>
-  <pre><code>use rust_yaml::{Yaml, Value};
-
-let yaml = Yaml::new();
-let value = yaml.load_str("key: value").unwrap();
-println!("{:?}", value);</code></pre>
-</body>
-</html>
-EOF
-
-echo "Documentation pages created successfully"
+echo "==> Pages bundle ready: $OUT"
+printf '    root pages : %s\n' "$(find "$OUT" -maxdepth 1 -name '*.html' | wc -l | tr -d ' ')"
+printf '    api/       : %s\n' "$(du -sh "$OUT/api" | cut -f1)"

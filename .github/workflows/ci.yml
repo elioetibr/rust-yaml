@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 name: CI
 
 concurrency:
@@ -43,7 +47,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -51,7 +55,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -64,13 +68,13 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v4.5.0
+        uses: gittools/actions/gitversion/setup@7417b1089e2c7de93510f1901d656ddf60bb024f # v4.7.0
         with:
           versionSpec: "6.x"
 
       - name: Determine Version
         id: gitversion
-        uses: gittools/actions/gitversion/execute@v4.5.0
+        uses: gittools/actions/gitversion/execute@7417b1089e2c7de93510f1901d656ddf60bb024f # v4.7.0
         with:
           configFilePath: GitVersion.yml
 
@@ -117,7 +121,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -125,7 +129,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -138,7 +142,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: ${{ matrix.rust == 'msrv' || matrix.rust }}
           targets: ${{ matrix.rust-target }}
@@ -148,12 +152,14 @@ jobs:
         run: |  # pragma: allowlist secret
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
-          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
-          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> "$GITHUB_ENV"
+          {
+            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc"
+            echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc"
+            echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++"
+          } >> "$GITHUB_ENV"
 
       - name: Cache Rust toolchain
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.rustup/toolchains
@@ -166,7 +172,7 @@ jobs:
             ${{ matrix.os }}-rustup-
 
       - name: Cache cargo registry and git
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
@@ -178,7 +184,7 @@ jobs:
             ${{ matrix.os }}-cargo-registry-
 
       - name: Cache cargo build
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
           key: ${{ matrix.os }}-${{ matrix.arch }}-cargo-build-${{ matrix.rust }}-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
@@ -220,7 +226,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -228,7 +234,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository (with submodules)
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -244,7 +250,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Setup Rust cache
         uses: ./.github/actions/setup-rust-cache
@@ -311,7 +317,7 @@ jobs:
 
       - name: Upload conformance artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: yaml-test-suite-report-${{ github.run_id }}
           path: |
@@ -336,7 +342,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -344,7 +350,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -357,7 +363,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           components: rustfmt
 
@@ -372,7 +378,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -380,7 +386,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -393,12 +399,12 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           components: clippy
 
       - name: Cache cargo registry and git
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
@@ -409,7 +415,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo build for clippy
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
           key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
@@ -435,7 +441,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -443,7 +449,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -456,7 +462,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Setup cargo tools cache
         uses: ./.github/actions/setup-cargo-tools
@@ -464,7 +470,7 @@ jobs:
           tools: "cargo-tarpaulin cargo-llvm-cov"
 
       - name: Cache cargo registry and git
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
@@ -475,7 +481,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo build for coverage
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
           key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
@@ -555,7 +561,7 @@ jobs:
         # report. Posts/updates a sticky PR comment via the action's
         # built-in commenting and writes `code-coverage-results.md`
         # which we also fold into the workflow step summary.
-        uses: irongut/CodeCoverageSummary@v1.3.0
+        uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
         if: always() && hashFiles('cobertura.xml') != ''
         with:
           filename: cobertura.xml
@@ -574,7 +580,7 @@ jobs:
         # PR comment instead of accumulating new ones per push.
         # `@v3` is on Node.js 24 (the deprecated `@v2` still uses
         # Node.js 20, which the runner started flagging in late 2025).
-        uses: marocchino/sticky-pull-request-comment@v3
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         if: github.event_name == 'pull_request' && hashFiles('code-coverage-results.md') != ''
         with:
           recreate: true
@@ -582,7 +588,7 @@ jobs:
           header: coverage-report
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
@@ -600,7 +606,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -608,7 +614,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -621,7 +627,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Setup cargo tools cache
         uses: ./.github/actions/setup-cargo-tools
@@ -642,7 +648,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -650,7 +656,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -663,7 +669,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Setup cargo tools cache
         uses: ./.github/actions/setup-cargo-tools
@@ -684,7 +690,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -692,7 +698,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -705,10 +711,10 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Cache cargo registry and git
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
@@ -719,7 +725,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo build for benchmarks
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
           key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}-${{ hashFiles('benches/**/*.rs') }}
@@ -739,7 +745,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -747,7 +753,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -760,10 +766,10 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Cache cargo registry and git
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
@@ -774,7 +780,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo build for docs
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
           key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
@@ -819,7 +825,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -827,7 +833,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -840,12 +846,12 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           targets: ${{ env.BUILD_TARGET }}
 
       - name: Cache cargo registry and git
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
@@ -857,7 +863,7 @@ jobs:
             ${{ env.BUILD_OS }}-cargo-registry-
 
       - name: Cache cargo build for cross-platform
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
           key: ${{ env.BUILD_OS }}-${{ env.BUILD_ARCH }}-cargo-cross-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}
@@ -890,6 +896,13 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
           TAG: "${{ github.ref_name == github.event.repository.default_branch && needs.version.outputs.version || needs.version.outputs.informational-version }}"
+          # Bound through env rather than interpolated straight into the script:
+          # a ref name is attacker-controllable, and `${{ }}` splices verbatim
+          # into the shell before bash ever parses it.
+          REF_NAME: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          VERSION_MAJOR: ${{ needs.version.outputs.major }}
+          VERSION_MINOR: ${{ needs.version.outputs.minor }}
         run: |
           #!/usr/bin/env bash
 
@@ -902,25 +915,25 @@ jobs:
               HAS_RELEASE=$(gh release list --json tagName -q '.[].tagName' | grep -E "^(${VERSION})$" && echo true || echo false)
               if [[ "${HAS_RELEASE}" == true ]];
               then
-                gh release delete --yes ${VERSION}
+                gh release delete --yes "${VERSION}"
               fi
-              git push origin --delete ${VERSION}
-              git tag -d ${VERSION}
+              git push origin --delete "${VERSION}"
+              git tag -d "${VERSION}"
             fi
 
             echo
-            git tag -a ${VERSION} -m "chore: Release Version ${VERSION} [skip ci]"
+            git tag -a "${VERSION}" -m "chore: Release Version ${VERSION} [skip ci]"
             git push -f --tags --follow-tags
-            git push --set-upstream origin ${{ github.ref_name }}
+            git push --set-upstream origin "${REF_NAME}"
             echo
             echo
           }
 
-          tagger "v${{ github.ref_name == github.event.repository.default_branch && needs.version.outputs.version || needs.version.outputs.informational-version }}"
-          if [[ "${{ github.ref_name  }}" == "${{ github.event.repository.default_branch }}" ]];
+          tagger "v${TAG}"
+          if [[ "${REF_NAME}" == "${DEFAULT_BRANCH}" ]];
           then
-            tagger "v${{ needs.version.outputs.major }}.${{ needs.version.outputs.minor }}"
-            tagger "v${{ needs.version.outputs.major }}"
+            tagger "v${VERSION_MAJOR}.${VERSION_MINOR}"
+            tagger "v${VERSION_MAJOR}"
           fi
 
       - name: Generate release notes
@@ -947,7 +960,7 @@ jobs:
         # path through `args` (substituted as text before bash runs) is the
         # only reliable way to steer the output file — relying on an `OUTPUT`
         # env here is what produced an empty RELEASE_NOTES.md before.
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 name: "Setup Cargo Tools Cache"
 description: "Setup caching for cargo tools like cargo-audit, cargo-llvm-cov, etc."
 inputs:
@@ -33,7 +37,7 @@ runs:
 
     - name: Cache cargo tools
       id: cache-cargo-tools
-      uses: actions/cache@v5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cargo/bin
         key: ${{ runner.os }}-${{ steps.detect-arch.outputs.arch }}-cargo-tools-${{ steps.detect-arch.outputs.tools-key }}-${{ hashFiles('~/.cargo/bin/*') }}

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 ---
 # actionlint configuration
 # https://github.com/rhysd/actionlint/blob/main/docs/config.md
@@ -10,6 +14,12 @@ config-variables:
   - GITVERSION_SPEC
   - RUNS_ON
   - RUNS_ON_ARM64
+  # Referenced by linters.yml (the yamllint/markdown job's interpreter pin) and
+  # release.yml (the published crate name). Both are repository-level Actions
+  # variables; actionlint cannot see them over the API, so they are declared
+  # here for the same reason as the entries above.
+  - crate_name
+  - python_version
 
 paths:
   .github/workflows/**/*.{yml,yaml}:

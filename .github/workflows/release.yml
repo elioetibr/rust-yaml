@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 name: Publish to crates.io
 
 # This workflow handles publishing to crates.io and creating release artifacts.
@@ -48,7 +52,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -56,7 +60,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -97,7 +101,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -105,7 +109,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -118,12 +122,12 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Crates.io Authentication
         id: crates-auth
         if: github.event.inputs.dry_run != 'true'
-        uses: rust-lang/crates-io-auth-action@v1.0.4
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
 
       - name: Verify package
         run: |
@@ -189,7 +193,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -197,7 +201,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -210,7 +214,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Install cargo-edit
         run: cargo install cargo-edit
@@ -230,13 +234,13 @@ jobs:
           echo "Documentation built for version ${{ needs.validate.outputs.version }}" > target/doc/VERSION
 
       - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: target/doc
 
       - name: Deploy to GitHub Pages
         if: github.event.inputs.dry_run != 'true'
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token || github.token }}
 
@@ -254,36 +258,46 @@ jobs:
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     steps:
       - name: Summary
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          CRATE_RESULT: ${{ needs.publish-crate.result }}
+          DOCS_RESULT: ${{ needs.publish-docs.result }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        # A single grouped redirect rather than 26 individual ones (SC2129), with
+        # $GITHUB_STEP_SUMMARY quoted (SC2086) and every workflow expression bound
+        # through env: instead of spliced into the script text.
         run: |
-          echo "# 📦 Publication Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "# 📦 Publication Summary"
+            echo ""
+            echo "**Version:** ${VERSION}"
+            echo ""
 
-          if [ "${{ needs.publish-crate.result }}" = "success" ]; then
-            echo "✅ **crates.io:** Successfully published" >> $GITHUB_STEP_SUMMARY
-            echo "   - View: https://crates.io/crates/rust-yaml/${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ needs.publish-crate.result }}" = "skipped" ]; then
-            echo "⏭️ **crates.io:** Skipped (dry run or already published)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **crates.io:** Failed or not completed" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "${CRATE_RESULT}" = "success" ]; then
+              echo "✅ **crates.io:** Successfully published"
+              echo "   - View: https://crates.io/crates/rust-yaml/${VERSION}"
+            elif [ "${CRATE_RESULT}" = "skipped" ]; then
+              echo "⏭️ **crates.io:** Skipped (dry run or already published)"
+            else
+              echo "❌ **crates.io:** Failed or not completed"
+            fi
+            echo ""
 
-          if [ "${{ needs.publish-docs.result }}" = "success" ]; then
-            echo "✅ **Documentation:** Successfully published" >> $GITHUB_STEP_SUMMARY
-            echo "   - docs.rs: https://docs.rs/rust-yaml/latest" >> $GITHUB_STEP_SUMMARY
-            echo "   - GitHub Pages: https://${{ github.repository_owner }}.github.io/rust-yaml/" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ needs.publish-docs.result }}" = "skipped" ]; then
-            echo "⏭️ **Documentation:** Skipped (dry run)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **Documentation:** Failed or not completed" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "${DOCS_RESULT}" = "success" ]; then
+              echo "✅ **Documentation:** Successfully published"
+              echo "   - docs.rs: https://docs.rs/rust-yaml/latest"
+              echo "   - GitHub Pages: https://${REPO_OWNER}.github.io/rust-yaml/"
+            elif [ "${DOCS_RESULT}" = "skipped" ]; then
+              echo "⏭️ **Documentation:** Skipped (dry run)"
+            else
+              echo "❌ **Documentation:** Failed or not completed"
+            fi
+            echo ""
 
-          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. Verify the crate at: https://crates.io/crates/rust-yaml" >> $GITHUB_STEP_SUMMARY
-          echo "2. Check documentation at: https://docs.rs/rust-yaml" >> $GITHUB_STEP_SUMMARY
-          echo "3. Create release notes if not already done" >> $GITHUB_STEP_SUMMARY
-          echo "4. Announce the release" >> $GITHUB_STEP_SUMMARY
+            echo "## Next Steps"
+            echo ""
+            echo "1. Verify the crate at: https://crates.io/crates/rust-yaml"
+            echo "2. Check documentation at: https://docs.rs/rust-yaml"
+            echo "3. Create release notes if not already done"
+            echo "4. Announce the release"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,12 +1,21 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 name: Deploy Documentation
 
 on:
   push:
     branches: [main]
     paths:
+      # `src/**` and `Cargo.toml` drive the rustdoc half of the bundle; `docs/**`
+      # drives the VitePress half. Before docs/** was listed here, editing a
+      # guide published nothing -- the workflow simply never ran.
       - "src/**"
       - "Cargo.toml"
+      - "docs/**"
       - ".github/workflows/docs.yml"
+      - ".github/scripts/create-docs-pages.sh"
   workflow_dispatch:
 
 permissions:
@@ -24,8 +33,17 @@ jobs:
     name: Build Documentation
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     steps:
+      # `continue-on-error` is what makes the `|| github.token` fallback below
+      # reachable at all. Without it, a missing or rotated app credential aborts
+      # the job before checkout runs, so that `||` can only ever rescue an empty
+      # output -- never a failed step. Deliberately degrading here is safe:
+      # nothing in this workflow needs elevated rights. The checkout is
+      # read-only, the one submodule (yaml/yaml-test-suite) is public, and Pages
+      # is authorised by the `id-token`/`pages` permissions rather than by this
+      # token. The app token is therefore an optimisation, never a requirement.
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -34,7 +52,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -47,10 +65,18 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
+
+      # The VitePress half of the bundle needs a JS runtime. `bun-version-file`
+      # reads docs/.bun-version so CI and `mise run docs:site` cannot drift onto
+      # different bun releases.
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: "docs/.bun-version"
 
       - name: Cache cargo registry
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry/index
@@ -71,7 +97,10 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: "target/doc"
+          # The assembled bundle (VitePress at the root, rustdoc under api/),
+          # not target/doc -- uploading the latter would publish the API
+          # documentation alone and drop the entire site.
+          path: "target/gh-pages"
 
   deploy:
     name: Deploy to GitHub Pages

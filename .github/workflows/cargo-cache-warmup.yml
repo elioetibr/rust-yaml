@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 name: Cargo Cache Warmup
 
 concurrency:
@@ -50,7 +54,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -58,7 +62,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -71,14 +75,14 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           components: rustfmt, clippy
           targets: ${{ matrix.rust-target }}
 
       - name: Install cross-compilation tools (Linux ARM64)
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
-        uses: awalsh128/cache-apt-pkgs-action@v1
+        uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9 # v1.6.3
         with:
           packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
           version: 1.0
@@ -86,12 +90,14 @@ jobs:
       - name: Configure ARM64 cross-compile env
         if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
         run: |  # pragma: allowlist secret
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
-          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
-          echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++" >> "$GITHUB_ENV"
+          {
+            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc"
+            echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc"
+            echo "CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++"
+          } >> "$GITHUB_ENV"
 
       - name: Cache cargo registry
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/bin/
@@ -104,7 +110,7 @@ jobs:
             ${{ matrix.os }}-cargo-registry-
 
       - name: Cache cargo build
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
           key: ${{ matrix.os }}-${{ matrix.arch }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('**/*.rs') }}
@@ -136,7 +142,7 @@ jobs:
 
       - name: Install cargo-nextest
         if: matrix.arch == 'x86_64' # Only install on native architectures
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2.85.7
         with:
           tool: cargo-nextest
         continue-on-error: true
@@ -147,21 +153,32 @@ jobs:
         continue-on-error: true
 
       - name: Summary
+        env:
+          MATRIX_OS: ${{ matrix.os }}
+          MATRIX_ARCH: ${{ matrix.arch }}
+          MATRIX_TARGET: ${{ matrix.rust-target }}
+        # One grouped redirect rather than 17 individual ones (SC2129), with
+        # $GITHUB_STEP_SUMMARY quoted (SC2086). Grouping also fixes a real bug:
+        # in `du -sh ... || echo "N/A" >> $GITHUB_STEP_SUMMARY` the redirect binds
+        # only to the fallback echo, so the du output itself went to stdout and
+        # never reached the summary. Inside the block both are captured.
         run: |
-          echo "## Cache Warmup Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Platform:** ${{ matrix.os }} / ${{ matrix.arch }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Target:** ${{ matrix.rust-target }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Cargo registry cached" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Dependencies downloaded" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Project built for target ${{ matrix.rust-target }}" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Tests compiled" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Documentation generated" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Cache size details:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          du -sh ~/.cargo/registry/ 2>/dev/null || echo "Registry: N/A" >> $GITHUB_STEP_SUMMARY
-          du -sh ~/.cargo/git/ 2>/dev/null || echo "Git: N/A" >> $GITHUB_STEP_SUMMARY
-          du -sh target/ 2>/dev/null || echo "Target: N/A" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Cache Warmup Complete"
+            echo ""
+            echo "**Platform:** ${MATRIX_OS} / ${MATRIX_ARCH}"
+            echo "**Target:** ${MATRIX_TARGET}"
+            echo ""
+            echo "✅ Cargo registry cached"
+            echo "✅ Dependencies downloaded"
+            echo "✅ Project built for target ${MATRIX_TARGET}"
+            echo "✅ Tests compiled"
+            echo "✅ Documentation generated"
+            echo ""
+            echo "Cache size details:"
+            echo '```'
+            du -sh ~/.cargo/registry/ 2>/dev/null || echo "Registry: N/A"
+            du -sh ~/.cargo/git/ 2>/dev/null || echo "Git: N/A"
+            du -sh target/ 2>/dev/null || echo "Target: N/A"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

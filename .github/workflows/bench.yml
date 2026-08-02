@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 name: Benchmark
 
 on:
@@ -34,7 +38,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -42,7 +46,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -55,10 +59,10 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
 
       - name: Cache cargo registry and git
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index
@@ -69,7 +73,7 @@ jobs:
             ${{ runner.os }}-cargo-registry-
 
       - name: Cache cargo build for benchmarks
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target
           key: ${{ runner.os }}-cargo-bench-standalone-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs') }}-${{ hashFiles('benches/**/*.rs') }}
@@ -88,7 +92,7 @@ jobs:
         # `Change: [+/-x%]` lines next to each `bench:` line in the log.
         # Restored after the broader `target` cache so it overlays the
         # longer-lived baselines on top.
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: target/criterion
           key: criterion-${{ runner.os }}-${{ github.ref_name }}
@@ -117,7 +121,7 @@ jobs:
             | tee bench-output.txt
 
       - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1.22.1
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           tool: "cargo"
           output-file-path: bench-output.txt

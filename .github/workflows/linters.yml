@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 name: Linter
 
 concurrency:
@@ -22,7 +26,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -30,7 +34,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Use PR head SHA on pull_request events to avoid synthetic merge commit
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -43,17 +47,17 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ vars.PYTHON_VERSION || '3.13' }}
 
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
         with:
           cache_key: "mise-{{platform}}-{{version}}-{{file_hash}}"
           github_token: ${{ github.token }}
 
       - name: Cache pre-commit hooks
-        uses: actions/cache@v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-py${{ vars.PYTHON_VERSION || '3.13' }}-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -74,7 +78,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
           owner: ${{ github.repository_owner }}
@@ -82,7 +86,7 @@ jobs:
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: "0"
 
@@ -90,7 +94,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install committed
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2.85.7
         with:
           tool: committed
 
@@ -108,7 +112,7 @@ jobs:
 
       - name: Comment on PR with results
         if: failure() && github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         with:
@@ -116,9 +120,18 @@ jobs:
             const { owner, repo, number } = context.issue;
             const baseSha = process.env.BASE_SHA;
 
+            // Split across concatenated string literals purely to stay under the
+            // 200-character line limit; the joined result is byte-identical to the
+            // single line it replaces. Backticks need no escaping out here — only
+            // inside the template literal below.
+            const intro =
+              "Your commit messages don't follow our [Conventional Commits](https://www.conventionalcommits.org/) format. "
+              + "Validation is enforced by [`committed`](https://github.com/crate-ci/committed) (Rust-native) "
+              + "using rules defined in [`committed.toml`](committed.toml).";
+
             const comment = `## 📝 Commit Message Validation Failed
 
-            Your commit messages don't follow our [Conventional Commits](https://www.conventionalcommits.org/) format. Validation is enforced by [\`committed\`](https://github.com/crate-ci/committed) (Rust-native) using rules defined in [\`committed.toml\`](committed.toml).
+            ${intro}
 
             ### Expected Format:
             \`\`\`
