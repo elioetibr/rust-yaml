@@ -47,6 +47,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -121,6 +122,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -142,7 +144,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
         with:
           toolchain: ${{ matrix.rust == 'msrv' || matrix.rust }}
           targets: ${{ matrix.rust-target }}
@@ -226,6 +228,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -250,7 +253,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
       - name: Setup Rust cache
         uses: ./.github/actions/setup-rust-cache
@@ -342,6 +345,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -363,7 +367,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
         with:
           components: rustfmt
 
@@ -378,6 +382,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -399,7 +404,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
         with:
           components: clippy
 
@@ -441,6 +446,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -462,7 +468,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
       - name: Setup cargo tools cache
         uses: ./.github/actions/setup-cargo-tools
@@ -606,6 +612,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -627,7 +634,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
       - name: Setup cargo tools cache
         uses: ./.github/actions/setup-cargo-tools
@@ -648,6 +655,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -669,7 +677,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
       - name: Setup cargo tools cache
         uses: ./.github/actions/setup-cargo-tools
@@ -690,6 +698,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -711,7 +720,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
       - name: Cache cargo registry and git
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -745,6 +754,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -766,7 +776,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
       - name: Cache cargo registry and git
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -825,6 +835,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
+        continue-on-error: true
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.CLIENT_ID }}
@@ -846,7 +857,7 @@ jobs:
         uses: ./.github/actions/bot-setup
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
         with:
           targets: ${{ env.BUILD_TARGET }}
 
