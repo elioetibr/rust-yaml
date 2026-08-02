@@ -33,58 +33,24 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # Delegates to version.yml so GitVersion is installed, configured and read in
+  # exactly one place. That workflow additionally treats a tag ref as
+  # authoritative and cross-checks it against Cargo.toml, which the inline steps
+  # this replaced did not do.
+  #
+  # Output names are NOT the ones this job used to publish, and the difference is
+  # not cosmetic. `outputs.version` here now means SemVer (prerelease label
+  # included); the value the consumers below want is MajorMinorPatch, which
+  # version.yml publishes as `majorMinorPatch`. Mapping `version` to `version`
+  # would lint clean and quietly start tagging releases `v1.1.1-alpha.5`.
+  # `informationalVersion` is not republished by name, so it is read off the
+  # `json` output, which carries the whole GitVersion object.
   version:
     name: Version Info
-    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
-    timeout-minutes: 6
-    outputs:
-      informational-version: ${{ steps.gitversion.outputs.InformationalVersion }}
-      major-minor-patch: ${{ steps.gitversion.outputs.MajorMinorPatch }}
-      semver: ${{ steps.gitversion.outputs.SemVer }}
-      version: ${{ steps.gitversion.outputs.MajorMinorPatch }}
-      major: ${{ steps.gitversion.outputs.Major }}
-      minor: ${{ steps.gitversion.outputs.Minor }}
-    steps:
-      - name: Generate GitHub App Token
-        id: app-token
-        continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ vars.CLIENT_ID }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          private-key: ${{ secrets.PRIVATE_KEY }}
-
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Use PR head SHA on pull_request events to avoid synthetic merge commit
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: "0"
-          fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
-          submodules: true
-
-      - name: GitHub Actions Bot Setup
-        uses: ./.github/actions/bot-setup
-
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@7417b1089e2c7de93510f1901d656ddf60bb024f # v4.7.0
-        with:
-          versionSpec: "6.x"
-
-      - name: Determine Version
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@7417b1089e2c7de93510f1901d656ddf60bb024f # v4.7.0
-        with:
-          configFilePath: GitVersion.yml
-
-      - name: Display version info
-        run: |
-          echo "Version: ${{ steps.gitversion.outputs.SemVer }}"
-          echo "Informational Version: ${{ steps.gitversion.outputs.InformationalVersion }}"
-          echo "Branch Name: ${{ steps.gitversion.outputs.BranchName }}"
-          echo "SHA: ${{ steps.gitversion.outputs.Sha }}"
+    uses: ./.github/workflows/version.yml
+    # The app token is optional there, but PRIVATE_KEY only reaches a reusable
+    # workflow when passed; nothing is inherited implicitly.
+    secrets: inherit
 
   test:
     name: Test Suite (${{ matrix.rust }} - ${{ matrix.os }} / ${{ matrix.arch }})
@@ -137,7 +103,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -247,7 +213,7 @@ jobs:
           # Without `recursive`, the harness short-circuits with "Skipping" and we'd
           # publish a green-but-empty report on every run.
           submodules: recursive
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
 
       - name: GitHub Actions Bot Setup
         uses: ./.github/actions/bot-setup
@@ -360,7 +326,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -397,7 +363,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -461,7 +427,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -627,7 +593,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -670,7 +636,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -713,7 +679,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -769,7 +735,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -850,7 +816,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -893,7 +859,7 @@ jobs:
           arch: ${{ env.BUILD_ARCH }}
 
       - name: Set version
-        run: cargo set-version ${{ needs.version.outputs.version }}
+        run: cargo set-version ${{ needs.version.outputs.majorMinorPatch }}
 
       - name: Build
         run: cargo build --target ${{ env.BUILD_TARGET }} --release --verbose
@@ -905,8 +871,8 @@ jobs:
         id: tag
         shell: bash -l {0}
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
-          TAG: "${{ github.ref_name == github.event.repository.default_branch && needs.version.outputs.version || needs.version.outputs.informational-version }}"
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
+          TAG: "${{ github.ref_name == github.event.repository.default_branch && needs.version.outputs.majorMinorPatch || fromJSON(needs.version.outputs.json).InformationalVersion }}"
           # Bound through env rather than interpolated straight into the script:
           # a ref name is attacker-controllable, and `${{ }}` splices verbatim
           # into the shell before bash ever parses it.
@@ -1032,7 +998,7 @@ jobs:
           fi
           echo "::endgroup::"
 
-          echo "::group::Create release v${{ needs.version.outputs.version }}"
+          echo "::group::Create release v${{ needs.version.outputs.majorMinorPatch }}"
           # `-F <file>` is the short form of `--notes-file`. Reading
           # the body from disk avoids shell-escaping multi-line
           # markdown on the command line AND keeps `gh release create`
@@ -1042,7 +1008,7 @@ jobs:
           # The version comes from the `version` job (GitVersion) via
           # `needs`, matching the tag the Tagging step created above;
           # `--verify-tag` then confirms that tag exists before release.
-          gh release create "v${{ needs.version.outputs.version }}" \
+          gh release create "v${{ needs.version.outputs.majorMinorPatch }}" \
             -F "${RELEASE_NOTES_FILE}" \
             --verify-tag \
             --latest

@@ -1,0 +1,270 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name: Version
+
+on:
+  workflow_dispatch:
+  # Job outputs are NOT visible to a caller on their own -- a reusable workflow
+  # has to republish them here, or `needs.<job>.outputs.*` resolves to nothing
+  # and every consumer silently reads an empty string. The `semver` job below
+  # declares the same nine names; both halves are required, and the `jobs.<id>`
+  # here must track the job id -- renaming the job without updating these breaks
+  # every output at once.
+  workflow_call:
+    outputs:
+      json:
+        description: "The full GitVersion object, PascalCase keys, MajorMinor added and the two Assembly fields removed -- the same shape `mise run version:json` prints"
+        value: ${{ jobs.semver.outputs.json }}
+      version:
+        description: "SemVer, e.g. X.Y.Z-* -- the TAG when a tag ref triggered the run, otherwise GitVersion's derivation"
+        value: ${{ jobs.semver.outputs.version }}
+      source:
+        description: "Where `version` came from: `tag` or `gitversion`. On `tag` it has been cross-checked against Cargo.toml"
+        value: ${{ jobs.semver.outputs.source }}
+      major:
+        description: "Major, e.g. 0"
+        value: ${{ jobs.semver.outputs.major }}
+      minor:
+        description: "Minor, e.g. 0"
+        value: ${{ jobs.semver.outputs.minor }}
+      patch:
+        description: "Patch, e.g. 1"
+        value: ${{ jobs.semver.outputs.patch }}
+      majorMinor:
+        description: "Major.Minor, e.g. 0.0 -- the one DERIVED field, because the GitVersion action publishes no such output"
+        value: ${{ jobs.semver.outputs.majorMinor }}
+      majorMinorPatch:
+        description: "Major.Minor.Patch, e.g. 0.0.1"
+        value: ${{ jobs.semver.outputs.majorMinorPatch }}
+      preReleaseLabel:
+        description: "Pre-release label, empty on a stable version -- callers test it to decide whether to publish"
+        value: ${{ jobs.semver.outputs.preReleaseLabel }}
+      shortSha:
+        description: "Abbreviated commit SHA, e.g. 9301177"
+        value: ${{ jobs.semver.outputs.shortSha }}
+
+# NOT `read-all`. This workflow is CALLED, and a called workflow cannot request
+# more than the calling JOB grants. `read-all` expands to read on every scope
+# there is -- attestations, discussions, models, packages, statuses and a dozen
+# more -- so the call fails with "The workflow is requesting 'actions: read,
+# artifact-metadata: read, ...' but is only allowed". publish.yml carries the
+# same note for the same reason. A job needing more declares it itself.
+permissions:
+  contents: read
+
+env:
+  GITVERSION_SPEC: ${{ vars.GITVERSION_SPEC || '6.x' }}
+
+jobs:
+  semver:
+    name: Semantic Versioning
+    runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
+    # `contents: read` only. `actions: write` was rejected outright -- "the
+    # nested job 'version' is requesting 'actions: write', but is only allowed
+    # 'actions: none'" -- because the calling job in cicd.yml grants `contents:
+    # read` and a nested job cannot exceed that. Nothing here needs it: the job
+    # checks out, runs GitVersion and composes JSON. It uploads no artifact and
+    # touches no Actions API.
+    permissions:
+      contents: read
+    outputs:
+      # Sourced from `steps.version` -- the COMPOSE step -- not from
+      # `steps.gitversion`, which is the action itself. The action publishes no
+      # `json` and no `majorMinor`, so reading those off it yields an empty
+      # string; actionlint cannot catch that, because it has no output metadata
+      # for a third-party action and accepts any name you ask for.
+      #
+      # `json` carries the whole object, so nothing here is strictly necessary:
+      # `fromJSON(needs.version.outputs.json).Patch` reaches every field. The
+      # named ones exist because callers ask for them by name, and each must ALSO
+      # be republished under `on.workflow_call.outputs` above -- a name declared
+      # in only one of the two places resolves to an empty string, silently.
+      #
+      # Sourced from `steps.resolved`, NOT `steps.version`: on a tag ref the tag
+      # overrides the derivation, and a consumer reading the composed value would
+      # get the number GitVersion guessed rather than the one being released.
+      # `shortSha` is the exception -- it describes the commit, which no tag
+      # changes.
+      json: ${{ steps.resolved.outputs.json }}
+      version: ${{ steps.resolved.outputs.version }}
+      major: ${{ steps.resolved.outputs.major }}
+      minor: ${{ steps.resolved.outputs.minor }}
+      patch: ${{ steps.resolved.outputs.patch }}
+      majorMinor: ${{ steps.resolved.outputs.majorMinor }}
+      majorMinorPatch: ${{ steps.resolved.outputs.majorMinorPatch }}
+      preReleaseLabel: ${{ steps.resolved.outputs.preReleaseLabel }}
+      shortSha: ${{ steps.version.outputs.shortSha }}
+      source: ${{ steps.resolved.outputs.source }}
+    steps:
+      # GitVersion derives the version from tags and commit distance, so it needs
+      # the history, not a shallow clone: `fetch-depth: 0` and `fetch-tags` are
+      # load-bearing. A called workflow runs on its own runner and inherits
+      # nothing from the caller, so the checkout has to happen here.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+          fetch-tags: "true"
+          token: ${{ secrets.GITHUB_TOKEN || github.token }}
+
+      - name: Cache GitVersion Tool
+        id: cache-gitversion
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /opt/hostedtoolcache/GitVersion.Tool
+            ~/.dotnet/tools
+          key: gitversion-${{ runner.os }}-${{ runner.arch }}-${{ env.GITVERSION_SPEC }}
+          restore-keys: |
+            gitversion-${{ runner.os }}-${{ runner.arch }}-
+            gitversion-${{ runner.os }}-
+
+      - name: Install GitVersion
+        id: install-gitversion
+        uses: gittools/actions/gitversion/setup@7417b1089e2c7de93510f1901d656ddf60bb024f # v4.7.0
+        with:
+          versionSpec: ${{ env.GITVERSION_SPEC }}
+          preferLatestVersion: true
+
+      # `configFilePath` is explicit rather than left to auto-discovery. The
+      # inline job this replaces named GitVersion.yml directly, and the file
+      # carries the branch and `+semver:` rules the whole release flow depends
+      # on -- silently falling back to GitVersion's built-in defaults would
+      # change every derived number without failing anything.
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@7417b1089e2c7de93510f1901d656ddf60bb024f # v4.7.0
+        with:
+          configFilePath: GitVersion.yml
+
+      # The action publishes no `majorMinor`, so it has to be derived. Derived
+      # from `toJSON(...outputs)` rather than a hand-written list of the 26
+      # fields: whatever the action emits flows through, so upgrading it cannot
+      # silently drop a value here.
+      #
+      # Keys are capitalised first. The action emits camelCase while
+      # `gitversion /output json` emits PascalCase; GitHub expressions compare
+      # property names case-insensitively so nothing notices, but jq does not --
+      # unconverted, `.Major` is null and MajorMinor comes out "null.null".
+      # Capitalised, the two key sets are identical, and the deletion and
+      # MajorMinor shape below mirror `mise run version:json`, so the local and
+      # CI answers are the same object. (`PreReleaseLabelWithDash` is the one
+      # field the action does not expose; nothing reads it.)
+      - name: Compose version JSON
+        id: version
+        env:
+          GITVERSION_OUTPUTS: ${{ toJSON(steps.gitversion.outputs) }}
+        run: |
+          set -Eeuo pipefail
+          json="$(printf '%s' "${GITVERSION_OUTPUTS}" | jq -Sc '
+            with_entries(.key |= (.[0:1] | ascii_upcase) + .[1:])
+            | del(.AssemblySemVer, .AssemblySemFileVer)
+            + {MajorMinor: "\(.Major).\(.Minor)"}')"
+          {
+            echo "json=${json}"
+            echo "version=$(printf '%s' "${json}" | jq -r '.SemVer')"
+            echo "major=$(printf '%s' "${json}" | jq -r '.Major')"
+            echo "minor=$(printf '%s' "${json}" | jq -r '.Minor')"
+            echo "patch=$(printf '%s' "${json}" | jq -r '.Patch')"
+            echo "majorMinor=$(printf '%s' "${json}" | jq -r '.MajorMinor')"
+            echo "majorMinorPatch=$(printf '%s' "${json}" | jq -r '.MajorMinorPatch')"
+            echo "preReleaseLabel=$(printf '%s' "${json}" | jq -r '.PreReleaseLabel')"
+            echo "shortSha=$(printf '%s' "${json}" | jq -r '.ShortSha')"
+          } >> "$GITHUB_OUTPUT"
+          printf '%s\n' "${json}" | jq -r '"Version: \(.SemVer) Major: \(.Major) MajorMinor: \(.MajorMinor) MajorMinorPatch: \(.MajorMinorPatch)"'
+
+      # THE TAG IS THE AUTHORITY. Whenever a tag ref triggered this run its name
+      # IS the release, and GitVersion is only a derivation of it; letting the
+      # derivation win would publish a crate under a number the tag does not
+      # name. Off a tag there is nothing to defer to, so the derivation stands.
+      #
+      # This is the ONLY place that decision is made. Every consumer already
+      # reads `needs.version.outputs.*`, so overriding here propagates without
+      # any of them re-deriving -- which is what publish.yml's `validate` used to
+      # do off `github.ref_name`, an expression that resolves to the CALLER's ref
+      # under `workflow_call` and once produced the literal version `main`.
+      #
+      # `GITHUB_REF_NAME` reaches the shell through `env`, never interpolated
+      # into the script: a tag name is pushed input, and `${{ }}` inside `run:`
+      # would splice it in before bash ever sees a quote.
+      - name: Resolve authoritative version
+        id: resolved
+        env:
+          COMPOSED: ${{ steps.version.outputs.json }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -Eeuo pipefail
+
+          if [ "${REF_TYPE}" = "tag" ]; then
+            version="${REF_NAME#v}"
+            source="tag"
+          else
+            version="$(printf '%s' "${COMPOSED}" | jq -r '.SemVer')"
+            source="gitversion"
+          fi
+
+          # Refuse anything that is not SemVer rather than carrying it onward.
+          # A floating tag like `v0` or `v0.1` reaches this workflow the same way
+          # a release tag does, and would otherwise flow into `cargo publish` and
+          # the crates.io lookup as a version string that cannot resolve.
+          if ! printf '%s' "${version}" \
+            | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Refusing '${version}' from ${source} (ref '${REF_NAME}'): not a SemVer version."
+            exit 1
+          fi
+
+          core="${version%%[-+]*}"
+          major="${core%%.*}"
+          patch="${core##*.}"
+          minor="${core#*.}"; minor="${minor%%.*}"
+          prerelease="${version#"${core}"}"
+          prerelease="${prerelease#-}"
+          prerelease="${prerelease%%+*}"
+
+          # Cargo.toml is what `cargo publish` actually uploads, so a tag that
+          # disagrees with it ships the wrong number under the right name. Gated
+          # on the tag: off one, Cargo.toml TRAILING the derivation is the normal
+          # state -- the counter advances on every commit -- and failing there
+          # would break every push to the default branch.
+          declared="$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' Cargo.toml | head -1)"
+          if [ "${source}" = "tag" ]; then
+            if [ "${declared}" != "${version}" ]; then
+              echo "::error::Tag '${REF_NAME}' names ${version}, but Cargo.toml declares ${declared}. Run \`mise run release:prepare\`, amend, and retag."
+              exit 1
+            fi
+          elif [ "${declared}" != "${version}" ]; then
+            # A WARNING, not a failure. Off a tag, Cargo.toml trailing the
+            # derivation is the normal state -- the counter advances on every
+            # commit -- so failing here would break every push to the default
+            # branch. It is still worth saying out loud: if this run goes on to
+            # tag and publish, `cargo publish` uploads what Cargo.toml declares,
+            # so the crate would land under a number the tag does not name and
+            # the only symptom would be a confusing "already exists" much later.
+            echo "::warning::Cargo.toml declares ${declared} but this run resolved ${version}. Harmless unless this run publishes; \`mise run release:prepare\` realigns them."
+          fi
+
+          {
+            echo "version=${version}"
+            echo "major=${major}"
+            echo "minor=${minor}"
+            echo "patch=${patch}"
+            echo "majorMinor=${major}.${minor}"
+            echo "majorMinorPatch=${core}"
+            echo "preReleaseLabel=${prerelease}"
+            echo "source=${source}"
+            # Republished so `fromJSON(...json)` agrees with the named outputs.
+            # Left unpatched, a caller reading `.SemVer` off the JSON would get
+            # the derivation while `outputs.version` carried the tag.
+            printf 'json=%s\n' "$(printf '%s' "${COMPOSED}" | jq -Sc \
+              --arg v "${version}" --arg mmp "${core}" --arg pre "${prerelease}" \
+              --argjson maj "${major}" --argjson min "${minor}" --argjson pat "${patch}" \
+              '. + {SemVer: $v, MajorMinorPatch: $mmp, PreReleaseLabel: $pre,
+                    Major: $maj, Minor: $min, Patch: $pat,
+                    MajorMinor: "\($maj).\($min)"}')"
+          } >> "$GITHUB_OUTPUT"
+
+          printf 'Authoritative version: %s (source: %s)\n' "${version}" "${source}"
