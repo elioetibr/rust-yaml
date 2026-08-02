@@ -1,0 +1,45 @@
+# Auto-generated lockfiles
+/**/bun.lock
+/**/package-lock.json
+/**/pnpm-lock.yaml
+
+# Build / test outputs
+/**/dist/
+/**/coverage/
+/**/node_modules/
+/**/*.tsbuildinfo
+
+# Files Prettier has no parser for (no plugin loaded)
+/**/.gitignore
+/**/.nvmrc
+/**/.npmrc
+/**/.prettierignore
+/**/*.toml
+
+# VitePress dependency cache. `/**/dist/` above already covers
+# `.vitepress/dist/`; nothing covered the cache. Until package.json moved here
+# Prettier ran from the repo root and picked the rule up from the root
+# .gitignore -- one of its two DEFAULT ignore paths, both resolved against the
+# working directory rather than the config. From `docs/` there is no .gitignore
+# to read, so 134 cache files became lint targets. eslint.config.js spells the
+# same path out, for the same reason.
+/**/.vitepress/cache/
+
+# Markdown belongs to rumdl (.rumdl.toml, `mise run markdownlint`), which is the
+# gate hk and CI actually run. The two formatters disagree and cannot both own a
+# file: Prettier rewrites a loose list by putting a blank line between every
+# item, which is precisely what rumdl's MD076 rejects -- running
+# `prettier --write` over plan/IMPLEMENTATION.md turned a passing gate into a
+# failing one. Prettier keeps .ts/.mts/.json/.vue/.css, where nothing competes
+# with it.
+/**/*.md
+
+# Changeset internal cache
+/**/.changeset/.cache/
+
+# Rumdl cache
+/**/.rumdl_cache/
+
+# Local claude-mem scratch buffer -- gitignored, not project source.
+# ESLint (`ignores`) and rumdl (`exclude`) already skip it.
+/**/.remember/

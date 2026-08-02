@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="rust-yaml">
+  <rect width="64" height="64" rx="12" fill="#1f5572" />
+  <path
+    d="M18 16 L32 34 L46 16 M32 34 L32 48"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

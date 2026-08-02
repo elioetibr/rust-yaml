@@ -1,0 +1,24 @@
+{
+  "extends": ["./tsconfig.base.json"],
+  "compilerOptions": {
+    // `DOM` on top of the base's `ESNext`: .vitepress code runs in the browser.
+    // Mermaid.vue queries the document and medium-zoom takes an Element, neither
+    // of which type-checks against ESNext alone.
+    "lib": ["ESNext", "DOM"],
+    // Vue SFC support -- required for Mermaid.vue to resolve at all.
+    "jsx": "preserve",
+    "types": ["node"]
+  },
+  // `.mts` as well as `.ts`: config.mts is the site's entry point and was
+  // excluded by an earlier `["**/*.ts"]`, so the file most likely to break a
+  // build was the one file never checked.
+  //
+  // `.vue` is NOT here. Checking SFCs needs vue-tsc, which resolves TypeScript's
+  // internal layout and does not yet support the TS 7 package exports; pinning
+  // TypeScript back to 5.x to satisfy it is a worse trade than leaving one small
+  // component unchecked. Mermaid.vue's script block is therefore not covered by
+  // `docs:typecheck` -- revisit when vue-tsc supports TS 7. The `*.vue` module
+  // shim in .vitepress/env.d.ts is what lets theme/index.ts import it at all.
+  "include": [".vitepress/**/*.ts", ".vitepress/**/*.mts"],
+  "exclude": ["node_modules", ".vitepress/dist", ".vitepress/cache"]
+}

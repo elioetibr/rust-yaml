@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[install]
+# Pin resolved versions rather than ranges, so bun.lock and package.json cannot
+# drift apart quietly. `frozenLockfile` is not set here: the mise tasks pass
+# `--locked` explicitly, which is the stricter behaviour and is visible at the
+# call site instead of hidden in config.
+exact = true
