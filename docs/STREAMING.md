@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Streaming YAML Parser Guide
 
 ## Overview
@@ -382,4 +388,4 @@ fn parallel_yaml_processing(files: Vec<String>) -> Result<()> {
 
 ---
 
-_Last updated: 2025-08-16_
+_Last updated: 2025-08-16._

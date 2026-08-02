@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Migration Guide: Moving to rust-yaml
 
 This guide helps you migrate from other Rust YAML libraries to rust-yaml, highlighting the benefits and providing practical examples.
@@ -126,7 +132,7 @@ let output = yaml.dump_str(doc)?;
 - ✅ **Performance**: Multiple optimization modes vs. single approach
 - ✅ **API Safety**: Reduced unwrap() calls, better error propagation
 
-#### Migration from yaml-rust2
+## Migration from yaml-rust2
 
 ### Before
 

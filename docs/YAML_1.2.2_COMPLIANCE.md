@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # YAML 1.2.2 Compliance
 
 This document tracks `rust-yaml`'s conformance to the [YAML 1.2.2 specification](https://yaml.org/spec/1.2.2/) and notes deviations from / compatibility with [YAML 1.1](https://yaml.org/spec/1.1/).
@@ -45,7 +51,7 @@ It is **descriptive**, not aspirational: every entry below reflects the current 
 | Plain scalars in flow context                        | ✅     |                                             |
 | Single-quoted scalars `'...'` with `''` escape       | ✅     |                                             |
 | Double-quoted scalars `"..."` with backslash escapes | ✅     | See Chapter 5 caveat                        |
-| Empty flow collections `[]` / `{}`                   | ✅     | Fixed in [#3](../../issues/3) via `448e3f6` |
+| Empty flow collections `[]` / `{}`                   | ✅     | Fixed in [#3](https://github.com/elioetibr/rust-yaml/issues/3) via `448e3f6` |
 
 ### Chapter 8 — Block style productions
 
@@ -53,7 +59,7 @@ It is **descriptive**, not aspirational: every entry below reflects the current 
 | --------------------------------------------------- | ------ | --------------------------------------------------------------- |
 | Block sequences (`- item`)                          | ✅     | Compact and extra-indented forms — fixed in `448e3f6`           |
 | Block mappings (`key: value`)                       | ✅     |                                                                 |
-| Block sequences nested in mappings                  | ✅     | The case from [#3](../../issues/3)                              |
+| Block sequences nested in mappings                  | ✅     | The case from [#3](https://github.com/elioetibr/rust-yaml/issues/3)                              |
 | Literal block scalars (`\|`, chomping `\|-`, `\|+`) | ✅     |                                                                 |
 | Folded block scalars (`>`, chomping `>-`, `>+`)     | ✅     |                                                                 |
 | Explicit block keys (`? key`)                       | ✅     | `tests/complex_keys.rs`                                         |
@@ -104,7 +110,7 @@ The table below was captured by parsing each input with `Yaml::new().load_str(..
 2. Spec float forms `.inf` / `.nan` resolve as strings while Rust forms `inf` / `nan` are wrongly resolved as floats — tagged forms work.
 3. The `BasicResolver` / `TagResolver` `implicit_resolvers` HashMap (`src/resolver.rs:36-48`) is still unused; the active resolution path is now `resolver::resolve_plain_scalar`, which is shared by all composers. The `BasicResolver` lookup map could be removed in a follow-up.
 
-**Resolved during [#10](../../issues/10)**:
+**Resolved during [#10](https://github.com/elioetibr/rust-yaml/issues/10)**:
 
 - Composer code-path consolidation: all four composers now share `resolver::resolve_plain_scalar`, eliminating four near-identical inline resolution blocks.
 - `%YAML 1.1` directive now governs bool resolution (`yes`/`no`/`on`/`off`).
@@ -119,7 +125,7 @@ YAML 1.1 includes types and behaviors that the 1.2 spec **explicitly removed** f
 | Boolean alternatives `yes/no/on/off`              | Dropped (1.2 = `true`/`false` only) | ✅ Directive-aware. Under default 1.2 (or `%YAML 1.2`), `yes`/`no`/`on`/`off` resolve as `String`. Under `%YAML 1.1`, they resolve as `Bool`.                                                      |
 | Boolean short forms `y/n`                         | Dropped (1.2 = `true`/`false` only) | 🔵 Not recognized in either version.                                                                                                                                                               |
 | Octal leading-zero `014` (= decimal 12 in 1.1)    | Dropped (1.2 = `0o14`)              | ❌ Resolved as decimal `Int(14)`, never as octal 12. Wrong for both 1.1 (should be 12) and arguably right for 1.2 (decimal interpretation matches `!!int`'s "implicit type implies decimal" rule). |
-| `!!value` tag and `=` value-key replacement       | Dropped from 1.2 Core               | ✅ Default 1.2: `=` is a plain string (spec-correct). Under `%YAML 1.1`: detected as `tag:yaml.org,2002:value` and rejected with a construction error — closes the `ruamel` parity gap from [#1](../../issues/1). |
+| `!!value` tag and `=` value-key replacement       | Dropped from 1.2 Core               | ✅ Default 1.2: `=` is a plain string (spec-correct). Under `%YAML 1.1`: detected as `tag:yaml.org,2002:value` and rejected with a construction error — closes the `ruamel` parity gap from [#1](https://github.com/elioetibr/rust-yaml/issues/1). |
 | `!!merge` (`<<`)                                  | Retained de facto                   | ✅ `tests/merge_keys.rs`, `tests/merge_keys_comprehensive.rs`                                                                                                                                      |
 | `!!binary`                                        | Retained, base64                    | ✅ `src/tag.rs:291-318` (decodes to `String` or marker for non-UTF-8)                                                                                                                              |
 | `!!timestamp`                                     | Retained, ISO 8601                  | 🟡 Stub — `src/tag.rs:321-325` stores as `String("timestamp:<raw>")`                                                                                                                               |

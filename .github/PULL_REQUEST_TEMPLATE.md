@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Pull Request
 
 ## Summary
@@ -88,7 +94,7 @@ cargo fmt -- --check
 
 <!-- Paste relevant test output or describe test results -->
 
-```
+```text
 # Paste test output here if relevant
 ```
 
@@ -217,4 +223,4 @@ cargo fmt -- --check
 
 <!-- Any specific questions you have for reviewers -->
 
-**Thank you for contributing to rust-yaml! 🎉**
+**Thank you for contributing to rust-yaml!** 🎉

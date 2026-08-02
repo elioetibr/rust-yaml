@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Development Guide
 
 This document covers the development workflow, tools, and processes for the rust-yaml project.
@@ -55,7 +61,7 @@ cargo binstall committed
 cargo install committed
 ```
 
-Rules live in [`committed.toml`](../committed.toml).
+Rules live in [`committed.toml`](https://github.com/elioetibr/rust-yaml/blob/main/committed.toml).
 
 **Manual setup**:
 
@@ -77,7 +83,7 @@ cat .nvmrc
 
 We use [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -167,7 +173,7 @@ Validates commit messages:
 
 - **Conventional commit** format checking via [`committed`](https://github.com/crate-ci/committed)
 - **PR comment** with help and reproduction snippet on validation failure
-- **Single source of truth** in [`committed.toml`](../committed.toml)
+- **Single source of truth** in [`committed.toml`](https://github.com/elioetibr/rust-yaml/blob/main/committed.toml)
 
 ### Release Process (`.github/workflows/release.yml`)
 
@@ -210,7 +216,7 @@ The project includes a comprehensive set of mise tasks (60+ commands). Run `mise
 
 #### Key Development Commands
 
-**Quick Development**
+##### Quick Development
 
 ```bash
 mise run setup         # Set up development environment
@@ -218,7 +224,7 @@ mise run quick-check   # Fast: format + lint + lib tests
 mise run ci            # Full CI pipeline locally
 ```
 
-**Testing**
+###### Testing
 
 ```bash
 mise run test              # All tests
@@ -227,7 +233,7 @@ mise run test-integration  # Integration tests
 mise run test-security     # Security-specific tests
 ```
 
-**Code Quality**
+###### Code Quality
 
 ```bash
 mise run format           # Format code
@@ -442,7 +448,7 @@ git commit -m "docs: add comprehensive API usage examples [skip ci]
 
 ### Test Organization
 
-```
+```text
 tests/
 ├── integration_tests.rs   # Cross-component tests
 ├── unit_tests.rs         # Component unit tests
@@ -466,7 +472,7 @@ tests/
 6. **Write clear PR descriptions**
 7. **Respond to review feedback**
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
+See [CONTRIBUTING.md](https://github.com/elioetibr/rust-yaml/blob/main/CONTRIBUTING.md) for detailed contribution guidelines.
 
 ## Current Project Status (2025-08-16)
 

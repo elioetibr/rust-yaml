@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Security Guide for rust-yaml
 
 ## Overview
@@ -254,4 +260,4 @@ If you discover a security vulnerability:
 
 ---
 
-_Last updated: 2025-08-16_
+_Last updated: 2025-08-16._

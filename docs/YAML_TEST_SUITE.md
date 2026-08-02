@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # YAML Test Suite Integration
 
 `rust-yaml` runs against the upstream
@@ -7,8 +13,8 @@ track real-world conformance with the YAML 1.2 specification.
 ## Layout
 
 The conformance harness lives in its **own workspace crate** —
-[`yaml-test-suite`](../yaml-test-suite) — modeled after the
-`skald/skald-test-suite` layout:
+[`yaml-test-suite`](https://github.com/elioetibr/rust-yaml/tree/main/yaml-test-suite) — modeled after the
+`yaml-test-suite` layout:
 
 ```text
 yaml-test-suite/

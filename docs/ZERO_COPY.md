@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Zero-Copy and Optimized Parsing Guide
 
 ## Overview
@@ -273,4 +279,4 @@ _Note: Actual performance depends on document structure, anchor usage, and hardw
 
 ---
 
-_Last updated: 2025-08-16_
+_Last updated: 2025-08-16._

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Rust YAML Library Comparison
 
 This document compares rust-yaml with other popular Rust YAML libraries available on crates.io.
@@ -119,7 +125,7 @@ yaml.add_tag_handler("!custom", custom_handler);
 
 ### Benchmarks (Preliminary)
 
-```
+```text
 Document Size: 1MB nested YAML
 ┌──────────┬────────┬────────┬───────┐
 │ Library         │ Parse Time  │ Memory      │ Features   │

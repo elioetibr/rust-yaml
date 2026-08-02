@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # rust-yaml Roadmap
 
 ## Overview
@@ -14,7 +20,7 @@ This roadmap outlines the planned improvements and enhancements for rust-yaml, f
 
 ### ✅ Fully Implemented & Production Ready
 
-**Core YAML 1.2 Features**
+#### Core YAML 1.2 Features
 
 - Complete YAML parsing and emission
 - All scalar types (null, bool, int, float, string)
@@ -29,7 +35,7 @@ This roadmap outlines the planned improvements and enhancements for rust-yaml, f
 - Round-trip preservation with formatting retention
 - Memory-safe implementation (zero unsafe code)
 
-**Advanced Features**
+##### Advanced Features
 
 - Streaming parser with async/await support
 - Zero-copy parsing optimizations (40% memory reduction)
@@ -38,7 +44,7 @@ This roadmap outlines the planned improvements and enhancements for rust-yaml, f
 - Error reporting with precise position and context
 - Indentation style detection and preservation
 
-**Development Infrastructure**
+###### Development Infrastructure
 
 - 210+ lib unit tests passing (223 with `--all-features`)
 - 200+ integration tests passing
@@ -385,7 +391,7 @@ We welcome contributions! Priority areas for contributors:
    - Advanced formatting tools
    - Plugin architecture design
 
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Please see [CONTRIBUTING.md](https://github.com/elioetibr/rust-yaml/blob/main/CONTRIBUTING.md) for guidelines.
 
 ## Breaking Changes Policy
 

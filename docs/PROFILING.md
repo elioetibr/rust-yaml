@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Profiling with Flamegraphs
 
 This project ships a ready-to-run [flamegraph](https://github.com/flamegraph-rs/flamegraph)
@@ -26,7 +32,7 @@ Platform profiler (used under the hood):
 
 ## Quick start
 
-Three aliases are defined in [`.cargo/config.toml`](../.cargo/config.toml):
+Three aliases are defined in [`.cargo/config.toml`](https://github.com/elioetibr/rust-yaml/blob/main/.cargo/config.toml):
 
 ```bash
 cargo flame-serde-load   # from_str::<T>  hot path (serde feature)

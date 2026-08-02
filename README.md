@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # rust-yaml
 
 [![CI](https://github.com/elioetibr/rust-yaml/actions/workflows/ci.yml/badge.svg)](https://github.com/elioetibr/rust-yaml/actions/workflows/ci.yml)
@@ -39,15 +45,35 @@ A complete, fast, and safe YAML 1.2 library for Rust with advanced features and 
   - [Feature Flags](#feature-flags)
   - [Feature Status](#feature-status)
     - [✅ Core YAML 1.2 Implementation (COMPLETE)](#-core-yaml-12-implementation-complete)
+      - [Parsing & Generation](#parsing--generation)
     - [✅ Advanced Features (COMPLETE)](#-advanced-features-complete)
+      - [References & Inheritance](#references--inheritance)
+        - [Text Processing](#text-processing)
+          - [Type System](#type-system)
+          - [Enterprise Features](#enterprise-features)
     - [✅ **Comment Preservation (IMPLEMENTED)**](#-comment-preservation-implemented)
+      - [Full Round-trip Comment Preservation](#full-round-trip-comment-preservation)
     - [✅ **Schema Validation (IMPLEMENTED)**](#-schema-validation-implemented)
+      - [Enterprise-Grade Validation System](#enterprise-grade-validation-system)
     - [🎯 Future Enhancements](#-future-enhancements)
+      - [Enterprise Features](#enterprise-features)
+        - [Performance & Developer Tools](#performance--developer-tools)
   - [Contributing](#contributing)
     - [Development Setup](#development-setup)
     - [Development Commands](#development-commands)
+      - [Testing](#testing)
+        - [Code Quality](#code-quality)
+          - [Documentation & Reports](#documentation--reports)
+          - [Coverage Reports](#coverage-reports)
+          - [CI/CD & Checks](#cicd--checks)
+          - [Markdown & Documentation](#markdown--documentation)
   - [Documentation](#documentation)
     - [Complete Documentation Index](#complete-documentation-index)
+      - [Core Documentation](#core-documentation)
+        - [Feature Documentation](#feature-documentation)
+          - [Performance & Analysis](#performance--analysis)
+          - [Development Tools](#development-tools)
+          - [Project Files](#project-files)
   - [License](#license)
   - [Acknowledgments](#acknowledgments)
   - [Related Projects](#related-projects)
@@ -420,7 +446,7 @@ rust-yaml = { version = "1.1.0", features = ["serde", "large-documents"] }
 
 ### ✅ Core YAML 1.2 Implementation (COMPLETE)
 
-**Parsing & Generation**
+#### Parsing & Generation
 
 - ✅ **Complete YAML 1.2 parsing and generation** - Full specification support
 - ✅ **Core data types** - null, bool, int, float, string, sequence, mapping
@@ -431,24 +457,24 @@ rust-yaml = { version = "1.1.0", features = ["serde", "large-documents"] }
 
 ### ✅ Advanced Features (COMPLETE)
 
-**References & Inheritance**
+#### References & Inheritance
 
 - ✅ **Anchors and aliases** (`&anchor`, `*alias`) with proper nested mapping support
 - ✅ **Merge keys** (`<<`) - Complete inheritance support with override behavior
 - ✅ **Smart serialization** - Automatic anchor/alias generation for shared values
 
-**Text Processing**
+##### Text Processing
 
 - ✅ **Multi-line strings** - Literal (`|`) and folded (`>`) block scalars
 - ✅ **Quote style preservation** - Single vs double quotes round-trip
 - ✅ **Indentation style preservation** - Spaces vs tabs detection and preservation
 
-**Type System**
+###### Type System
 
 - ✅ **Explicit type tags** (`!!str`, `!!int`, `!!map`, `!!seq`) with normalization
 - ✅ **Complex key support** - Sequences and mappings as mapping keys
 
-**Enterprise Features**
+###### Enterprise Features
 
 - ✅ **Complete comment correlation system** - Full round-trip comment preservation
 - ✅ **Schema validation with custom rules** - Comprehensive validation framework
@@ -456,7 +482,7 @@ rust-yaml = { version = "1.1.0", features = ["serde", "large-documents"] }
 
 ### ✅ **Comment Preservation (IMPLEMENTED)**
 
-**Full Round-trip Comment Preservation**
+#### Full Round-trip Comment Preservation
 
 - ✅ **Infrastructure complete** - CommentedValue, RoundTripConstructor, comment-aware scanner
 - ✅ **API available** - `load_str_with_comments()`, `dump_str_with_comments()`
@@ -483,7 +509,7 @@ let output = yaml.dump_str_with_comments(&commented_value)?;
 
 ### ✅ **Schema Validation (IMPLEMENTED)**
 
-**Enterprise-Grade Validation System**
+#### Enterprise-Grade Validation System
 
 - ✅ **Comprehensive rule system** - Type, pattern, range, length, enum validation
 - ✅ **Complex validation logic** - Conditional (if-then-else), anyOf, allOf, oneOf, not
@@ -531,12 +557,12 @@ yaml.validate_with_schema(&parsed_data, &schema)?; // Will fail - missing email
 
 ### 🎯 Future Enhancements
 
-**Enterprise Features**
+#### Enterprise Features
 
 - [ ] Custom type registration for Rust structs
 - [ ] Plugin system for extensible functionality
 
-**Performance & Developer Tools**
+##### Performance & Developer Tools
 
 - [ ] Streaming optimizations for very large documents
 - [ ] Configuration file editing utilities
@@ -572,7 +598,7 @@ mise run quick-check
 
 The project uses [mise](https://mise.jdx.dev) as its task runner, with 60+ tasks for the development workflow (run `mise tasks` to list them all):
 
-**Testing**
+#### Testing
 
 ```bash
 mise run test              # Run all tests
@@ -582,7 +608,7 @@ mise run test-security     # Run security-specific tests
 mise run test-release      # Run tests in release mode
 ```
 
-**Code Quality**
+##### Code Quality
 
 ```bash
 mise run format           # Format code with rustfmt
@@ -592,7 +618,7 @@ mise run audit            # Run security audit
 mise run deny             # Run cargo deny checks
 ```
 
-**Documentation & Reports**
+###### Documentation & Reports
 
 ```bash
 mise run doc              # Build documentation
@@ -600,7 +626,7 @@ mise run doc-open         # Build and open documentation
 mise run bench            # Run performance benchmarks
 ```
 
-**Coverage Reports**
+###### Coverage Reports
 
 ```bash
 mise run coverage         # Generate test coverage report (CI-compatible)
@@ -614,7 +640,7 @@ mise run coverage-llvm    # Generate coverage using llvm-cov
 mise run coverage-llvm-html  # Generate HTML coverage with llvm-cov
 ```
 
-**CI/CD & Checks**
+###### CI/CD & Checks
 
 ```bash
 mise run ci               # Full CI pipeline (format, lint, test, security)
@@ -623,7 +649,7 @@ mise run check-all        # Comprehensive checks with audit and coverage
 mise run release-check    # Check if ready for release
 ```
 
-**Markdown & Documentation**
+###### Markdown & Documentation
 
 ```bash
 mise run check-markdown   # Check markdown formatting issues
@@ -637,13 +663,13 @@ mise tasks                # Show all available tasks
 
 The project includes comprehensive documentation in the [`docs/`](./docs/) directory:
 
-**Core Documentation**
+#### Core Documentation
 
 - [**Development Guide**](./docs/DEVELOPMENT.md) - Complete development setup and workflow
 - [**Migration Guide**](./docs/MIGRATION_GUIDE.md) - Migrating from other YAML libraries
 - [**Roadmap**](./docs/ROADMAP.md) - Current status and future planned features
 
-**Feature Documentation**
+##### Feature Documentation
 
 - [**Merge Keys**](./docs/MERGE_KEYS.md) - Complete guide to YAML merge key inheritance (`<<`)
 - [**Tag System**](./docs/TAG_SYSTEM.md) - Type tags and explicit typing system
@@ -651,18 +677,18 @@ The project includes comprehensive documentation in the [`docs/`](./docs/) direc
 - [**Zero-Copy Parsing**](./docs/ZERO_COPY.md) - Memory-efficient parsing techniques
 - [**Streaming**](./docs/STREAMING.md) - Large document processing and async support
 
-**Performance & Analysis**
+###### Performance & Analysis
 
 - [**Performance Optimizations**](./docs/PERFORMANCE_OPTIMIZATIONS.md) - Technical performance details
 - [**Benchmark Results**](./docs/BENCHMARK_RESULTS.md) - Comprehensive performance comparisons
 - [**Library Comparison**](./docs/COMPARISON.md) - Comparison with other Rust YAML libraries
 
-**Development Tools**
+###### Development Tools
 
 - [**Pre-commit Setup**](./docs/PRE_COMMIT.md) - Git hooks and code quality automation
 - [**Version Management**](./docs/VERSION_MANAGEMENT.md) - Release process and versioning
 
-**Project Files**
+###### Project Files
 
 - [**Code of Conduct**](./CODE_OF_CONDUCT.md) - Community guidelines
 - [**Contributing**](./CONTRIBUTING.md) - Contribution guidelines and process
@@ -670,7 +696,10 @@ The project includes comprehensive documentation in the [`docs/`](./docs/) direc
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is dual-licensed under either [MIT](LICENSE-MIT) or
+[Apache-2.0](LICENSE-APACHE-2.0), at your option — matching the
+`MIT OR Apache-2.0` declared in `Cargo.toml` and the SPDX headers throughout
+the tree.
 
 ## Acknowledgments
 

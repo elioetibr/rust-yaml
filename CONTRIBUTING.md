@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Contributing to rust-yaml
 
 Thank you for your interest in contributing to rust-yaml! We welcome contributions from the community and are pleased to have you aboard.
@@ -76,7 +82,7 @@ This will:
 
 We use [conventional commits](https://www.conventionalcommits.org/) for consistent commit messages:
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -135,7 +141,7 @@ cargo install cargo-audit
 
 ### Project Structure
 
-```
+```text
 rust-yaml/
 ├── src/                    # Source code
 │   ├── scanner/           # Token scanning
@@ -164,7 +170,7 @@ Use descriptive branch names:
 
 Follow conventional commits format:
 
-```
+```text
 type(scope): description
 
 [optional body]

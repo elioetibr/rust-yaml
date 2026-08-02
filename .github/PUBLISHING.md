@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Publishing rust-yaml
 
 This document describes how to publish new versions of rust-yaml to crates.io and docs.rs.
@@ -98,7 +104,7 @@ gh release create v0.1.0 --generate-notes
 2. Once complete, verify:
    - crates.io: <https://crates.io/crates/rust-yaml>
    - docs.rs: <https://docs.rs/rust-yaml>
-   - GitHub Pages: https://[your-username].github.io/rust-yaml/
+   - GitHub Pages: <https://[your-username]>.github.io/rust-yaml/
 
 ## Documentation
 
@@ -127,7 +133,7 @@ Documentation is also published to GitHub Pages:
    - Source: GitHub Actions
 
 2. Documentation will be available at:
-   - https://[your-username].github.io/rust-yaml/
+   - <https://[your-username]>.github.io/rust-yaml/
 
 ## Version Management
 

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # YAML Tag System Documentation
 
 This document describes the comprehensive tag system implemented in `rust-yaml` that provides full YAML 1.2 tag support with custom handlers and schema validation.
@@ -61,7 +67,7 @@ Custom handles defined by %TAG directives:
 id: 123
 ```
 
-#### Verbatim Tags (!<uri>)
+#### Verbatim Tags (`!<uri>`)
 
 Direct tag URIs:
 
