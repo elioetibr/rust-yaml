@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! YAML resolver for tag resolution and implicit typing
 
 use crate::version::YamlVersion;
@@ -114,24 +118,18 @@ pub fn resolve_plain_scalar(value: &str, version: YamlVersion) -> PlainScalarTyp
 /// tag constructor. Returns `None` for any other input, or when the digits
 /// are missing or invalid for the radix.
 fn resolve_radix_int(value: &str) -> Option<i64> {
-    let (radix, digits) = if let Some(d) = value
-        .strip_prefix("0x")
-        .or_else(|| value.strip_prefix("0X"))
-    {
-        (16, d)
-    } else if let Some(d) = value
-        .strip_prefix("0o")
-        .or_else(|| value.strip_prefix("0O"))
-    {
-        (8, d)
-    } else if let Some(d) = value
-        .strip_prefix("0b")
-        .or_else(|| value.strip_prefix("0B"))
-    {
-        (2, d)
-    } else {
-        return None;
-    };
+    /// `(lowercase prefix, uppercase prefix, radix)`, tried in order. No prefix
+    /// is a prefix of another, so the order is presentational rather than
+    /// significant.
+    const PREFIXES: [(&str, &str, u32); 3] = [("0x", "0X", 16), ("0o", "0O", 8), ("0b", "0B", 2)];
+
+    let (radix, digits) = PREFIXES.iter().find_map(|&(lower, upper, radix)| {
+        value
+            .strip_prefix(lower)
+            .or_else(|| value.strip_prefix(upper))
+            .map(|digits| (radix, digits))
+    })?;
+
     if digits.is_empty() {
         return None;
     }
