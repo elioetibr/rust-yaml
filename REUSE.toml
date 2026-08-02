@@ -1,0 +1,61 @@
+SPDX-PackageDownloadLocation = "https://github.com/elioetibr/rust-yaml"
+SPDX-PackageName = "RUST YAML"
+SPDX-PackageSupplier = "Rust Yaml contributors"
+version = 1
+
+[[annotations]]
+SPDX-FileCopyrightText = "Rust Yaml contributors"
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+path = ["**"]
+precedence = "aggregate"
+
+[[annotations]]
+SPDX-FileCopyrightText = "YAML test suite contributors"
+SPDX-License-Identifier = "MIT"
+path = ["yaml-test-suite/**"]
+precedence = "aggregate"
+
+[tool.comply]
+# Custom comply settings
+ignore = [
+  "**/*.ico",
+  "**/*.lock",
+  "**/*.png",
+  "**/*.svg",
+  "**/.actrc",
+  "**/.aider.*/",
+  "**/.bun-version",
+  "**/.githooks/**",
+  "**/.nvmrc",
+  "**/.prettierignore",
+  "**/.prettierrc",
+  "**/.remember/",
+  "**/.rumdl_cache/",
+  "**/.secrets.baseline",
+  "**/CHANGELOG.md",
+  "**/bench-report/",
+  "**/benchmarks.json",
+  "**/committed.toml",
+  "**/dist/",
+  "**/docs/benchmarks/latest.md",
+  "**/docs/index.md",
+  "**/mutants*/",
+  "**/package*.json",
+  "**/supply-chain/.cargo-vet/**",
+  "**/tsconfig*.json",
+  "**/yaml-test-suite/data/",
+  "**/yaml-test-suite/data/**",
+]
+
+[[tool.comply.comment-styles]]
+close = ""
+filenames = [".gitmessage"]
+line = ""
+open = "#"
+
+[[tool.comply.comment-styles]]
+close = ""
+extensions = ["pkl"]
+filenames = ["hk.pkl"]
+line = ""
+open = "//"
