@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 # Enterprise security policy configuration for rust-yaml
 # This file defines security policies for dependencies, licenses, and advisories
 
@@ -8,9 +12,9 @@
 [licenses]
 # Only allow well-established open source licenses
 allow = [
-    "Apache-2.0",
-    "MIT",
-    "Unicode-3.0",  # Required for unicode-ident
+  "Apache-2.0",
+  "MIT",
+  "Unicode-3.0", # Required for unicode-ident
 ]
 
 # How to handle license detection confidence
@@ -27,8 +31,8 @@ db-urls = ["https://github.com/RustSec/advisory-db"]
 
 # Ignore specific advisories (use with caution in enterprise)
 ignore = [
-    # Example: Temporary ignore during migration
-    # "RUSTSEC-2023-0001",
+  # Example: Temporary ignore during migration
+  # "RUSTSEC-2023-0001",
 ]
 
 # ==============================================================================
@@ -61,5 +65,5 @@ allow-git = []
 
 # Allowed crate registries
 allow-registry = [
-    "https://github.com/rust-lang/crates.io-index",  # Official crates.io
+  "https://github.com/rust-lang/crates.io-index", # Official crates.io
 ]
