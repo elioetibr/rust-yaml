@@ -1509,6 +1509,120 @@ echo "✅ HTML coverage report generated in target/llvm-cov/html/"
 # Versioning
 # ============================================================================
 
+# Force-refresh tags before any derivation. GitVersion reads the tag graph, so a
+# stale local view silently produces a different number than CI computes from the
+# same commit.
+[tasks."git:tags:fetch"]
+alias = []
+description = "Force-refresh tags from origin so GitVersion sees the graph CI sees"
+hide = true
+shell = "bash -c"
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+git remote get-url origin >/dev/null 2>&1 || exit 0
+
+# `--force` is the whole point: without it git leaves an existing tag alone and
+# the refresh is a no-op precisely when it matters.
+git fetch --tags --force --quiet origin 2>/dev/null || {
+    echo "version: could not reach origin; tags may be stale and the computed version wrong" >&2
+    exit 0
+}
+'''
+
+# Every version answer routes through here, so refreshing tags at this one point
+# makes them all correct by construction rather than each remembering to do it.
+[tasks."version:json"]
+alias = []
+depends = ["git:tags:fetch"]
+description = "Print the GitVersion JSON for the working tree, or an empty object"
+hide = true
+shell = "bash -c"
+run = '''
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+# `/nocache` because GitVersion's cache invalidates on the COMMIT, not on the tag
+# graph, so an entry computed before a tag moved keeps being served at exactly
+# the moment the answer changed. Verified here on 2026-08-02: a cached run
+# reported 1.1.1 while a `/nocache` run on the same commit reported 1.2.0.
+#
+# `/config` is explicit even though auto-discovery finds GitVersion.yml from the
+# repository root (checked: identical output either way). It costs nothing and
+# makes this agree with .github/workflows/version.yml, which passes
+# `configFilePath` for the same reason.
+#
+# `AssemblySemVer`/`AssemblySemFileVer` are .NET four-part assembly versions
+# (`1.1.1.0`). Nothing in a Rust project consumes them, and they read as a third
+# and fourth disagreeing version next to `SemVer` and `MajorMinorPatch`. This
+# shape -- the two deletions plus a derived `MajorMinor` -- is the same object
+# .github/workflows/version.yml composes, so local and CI answers match.
+gitversion /nocache /config GitVersion.yml /output json \
+  | jq -Sr 'del(.AssemblySemVer, .AssemblySemFileVer) + {MajorMinor: "\(.Major).\(.Minor)"}' \
+    2>/dev/null || echo '{}'
+'''
+
+# `SemVer` rather than `MajorMinorPatch`: SemVer carries the commits-since-source
+# counter (`1.1.1-1`), which is what makes the tag name a unique point in history
+# rather than one that collides on the next commit. The floating names are
+# derived from this string by version:tags:floating, so an explicitly named tag
+# gets the same treatment without a second gitversion call.
+[tasks."version:tag"]
+alias = []
+description = "Print the exact tag name derived from version:json, e.g. v1.1.1-1"
+hide = true
+shell = "bash -c"
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+VERSION="$(mise run version:json | jq -r '.SemVer // empty')"
+
+# Empty means version:json fell back to `{}` -- gitversion is missing or refused
+# the tree. Tagging `vnull` from that is worse than stopping.
+if [ -z "${VERSION}" ]; then
+    echo "error: version:json supplied no SemVer; is gitversion installed?" >&2
+    echo "       Name the tag explicitly, e.g. mise run version:tags:floating v1.1.1-1" >&2
+    exit 1
+fi
+
+echo "v${VERSION}"
+'''
+
+# Derived from the tag STRING, not from version:json fields. `MajorMinor` is not
+# something gitversion emits -- version:json synthesizes it in jq -- so reading
+# fields here would either duplicate that jq or depend on a key raw gitversion
+# output does not have. Splitting the tag also means an explicitly named tag
+# floats exactly like a derived one.
+[tasks."version:tags:floating"]
+alias = []
+description = "Print the floating tag names for a version, e.g. v1.1.1 v1.1 v1"
+hide = true
+shell = "bash -c"
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+TAG="${usage_tag:-$(mise run version:tag)}"
+
+# v1.1.1-1 -> 1.1.1: drop the leading v, then the pre-release/build suffix.
+BASE="${TAG#v}"
+BASE="${BASE%%[-+]*}"
+
+IFS='.' read -r MAJOR MINOR _ <<<"${BASE}"
+MINOR="${MINOR:-0}"
+
+# A version like `1.1` yields `v1.1` twice; emit each name once.
+printf 'v%s\nv%s.%s\nv%s\n' "${BASE}" "${MAJOR}" "${MINOR}" "${MAJOR}" | awk '!seen[$0]++'
+'''
+usage = 'arg "[tag]" help="tag to derive from, e.g. v1.1.1-1; defaults to the version:tag derivation"'
+
 [tasks.version]
 alias = ["ver", "version:show"]
 description = "Show version information from Cargo.toml, src/version.rs, GitVersion.yml and git"
