@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# taplo configuration ~ https://taplo.tamasfe.dev/configuration/file.html
+#
+# taplo is the formatter of record for EVERY .toml in this repo (auto-discovered
+# at the repo root, no --config flag needed — mirrors how gitleaks finds
+# .gitleaks.toml and actionlint finds .github/actionlint.yaml).
+#
+# Division of labour with cargo-sort: taplo owns TOML *formatting* (whitespace,
+# indentation, array collapsing); cargo-sort owns Cargo.toml dependency
+# *ordering*. taplo is configured NOT to reorder keys or arrays so the two never
+# fight — the pipeline runs `cargo sort` first, then `taplo fmt` as the final
+# normalizing pass.
+
+# taplo walks the whole tree, including directories git never shows you, so the
+# excludes have to name them explicitly:
+#   * yaml-test-suite/data — third-party conformance corpus; never reformat
+#     vendored content.
+#   * .claude/worktrees — checked-out git worktrees are full copies of the repo,
+#     so without this every .toml here is linted twice and the copy's findings
+#     are unfixable from this checkout.
+#   * target — build output, including vendored .toml from dependencies.
+exclude = ["yaml-test-suite/data/**", ".claude/**", "target/**"]
+
+[formatting]
+# Leave key and array order exactly as written: package-metadata key order is
+# intentional, and dependency order is cargo-sort's responsibility, not taplo's.
+reorder_keys = false
+reorder_arrays = false
