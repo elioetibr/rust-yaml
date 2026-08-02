@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Canonical Rust toolchain definition (read by rustup, cargo, IDEs, and mise).
+# This is the single source of truth for the toolchain version; keep it in sync
+# with `rust-version` in Cargo.toml.
+[toolchain]
+channel = "1.97"
+profile = "default"
+# rustfmt + clippy come with `profile = "default"` but are listed explicitly as a
+# guarantee. llvm-tools is required by the cargo-tarpaulin llvm coverage engine
+# (see tarpaulin.toml); without it, `cargo tarpaulin --engine llvm` cannot run.
+# rust-src is needed for rust-analyzer/IDE std navigation and source-based
+# tooling; declaring it keeps fresh clones and CI reproducible (not IDE-only).
+components = ["rustfmt", "clippy", "llvm-tools", "rust-src"]
