@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: COMPLY contributors
+# SPDX-FileCopyrightText: Rust Yaml contributors
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
@@ -7,11 +7,11 @@
 #
 # committed ~ https://github.com/crate-ci/committed
 style = "conventional"
-subject_length = 50
+subject_length = 100
 subject_capitalized = false
 subject_not_punctuated = true
 imperative_subject = true
-line_length = 72
+line_length = 100
 no_wip = true
 no_fixup = true
 merge_commit = true

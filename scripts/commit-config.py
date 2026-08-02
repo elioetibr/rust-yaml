@@ -70,7 +70,7 @@ def render_committed(manifest: dict) -> str:
     # parsed `MIT OR Apache-2.0",` off the Python string, trailing quote and
     # comma included, and reported a licence that does not exist.
     lines = [
-        "# SPDX-FileCopyrightText: COMPLY contributors",
+        "# SPDX-FileCopyrightText: Rust Yaml contributors",
         "#",
         "# SPDX-License-Identifier: MIT OR Apache-2.0",
         "",

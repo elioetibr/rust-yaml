@@ -20,12 +20,20 @@
 # ---------------------------------------------------------------------------
 # [commit] — shared subject/style rules consumed by committed.toml generation.
 # These encode the project's commit conventions (see .gitmessage): conventional
-# style, lowercase imperative subject, no trailing period, 50/72 wrapping.
+# style, lowercase subject, no trailing period.
+#
+# The two budgets below are NOT the 50/72 git folklore, and changing them to it
+# breaks the repository. `committed` measures `subject_length` across the ENTIRE
+# first line, `type(scope)!: ` prefix included — it maps to commitlint's
+# header-max-length (100), not subject-max-length (72). A `build(commit): `
+# prefix alone spends 15 of those characters. At 50 every commit on this branch
+# fails, including the one that introduced the value (80 chars), and
+# linters.yml lints the whole PR range, not just the tip.
 # ---------------------------------------------------------------------------
 [commit]
 style = "conventional"
-subject_length = 50           # subject (the description after `type:`) max length
-line_length = 72              # body line wrap
+subject_length = 100          # WHOLE first line, prefix included — not just the description
+line_length = 100             # body line wrap
 subject_capitalized = false   # project convention: do NOT capitalize the subject
 subject_not_punctuated = true # no trailing period on the subject
 imperative_subject = true     # "add" not "added"/"adds" (e.g. "initialize", not "initial commit")
