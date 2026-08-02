@@ -53,7 +53,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: "0"
           fetch-tags: true
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           submodules: true
 
       - name: GitHub Actions Bot Setup
@@ -126,7 +126,7 @@ jobs:
         with:
           tool: "cargo"
           output-file-path: bench-output.txt
-          github-token: ${{ steps.app-token.outputs.token || github.token }}
+          github-token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           auto-push: true
           # Always write a benchmark table to GitHub's Step Summary so
           # results are visible from the Actions run page without
