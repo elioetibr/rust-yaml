@@ -34,7 +34,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish the built site to gh-pages, not just build it"
+        description: "Deploy the built site to GitHub Pages, not just build it"
         type: boolean
         default: false
       include-api:
@@ -63,7 +63,7 @@ on:
   workflow_call:
     inputs:
       publish:
-        description: "Publish the built site to gh-pages, not just build it"
+        description: "Deploy the built site to GitHub Pages, not just build it"
         type: boolean
         default: false
       include-api:
@@ -181,7 +181,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish to gh-pages
+    name: Publish to GitHub Pages
     needs: build
     # `inputs.publish` is truthy rather than compared to 'true': a boolean
     # workflow_dispatch input arrives as a real boolean, and GitHub casts both
@@ -193,48 +193,48 @@ jobs:
     if: ${{ needs.build.result == 'success' && inputs.publish }}
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     timeout-minutes: 10
+    # `deploy-pages` mints an OIDC token and writes a Pages deployment, so it
+    # needs those two scopes and nothing else. `contents: write` left with
+    # peaceiris: no step here commits any more.
     permissions:
-      contents: write
+      id-token: write
+      pages: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: "recursive"
-          fetch-depth: 0
-          fetch-tags: "true"
-          token: ${{ secrets.GITHUB_TOKEN || github.token }}
-
-      - name: GitHub Actions Bot Configuration
-        id: bot-config
-        uses: ./.github/actions/bot-setup
-
+      # No checkout. Every step below works on the downloaded artifact, and the
+      # local bot-setup action that forced a checkout here existed only to give
+      # peaceiris a commit identity.
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: docs-site
           path: dist
 
-      # `peaceiris`, not `upload-pages-artifact`/`deploy-pages`. Pages serves this
-      # repo from the `gh-pages` BRANCH, and those two actions publish through the
-      # Pages ARTIFACT source instead -- a repo can serve from only one, so they
-      # deployed something the site never reads. They were also pointed at
-      # `target/doc`, which no step in this job creates: the artifact downloaded
-      # above is the VitePress site, in `dist`.
+      # The Pages ARTIFACT path, not a push to the `gh-pages` branch. Both
+      # repositories are configured `build_type=workflow`, so GitHub serves what
+      # a workflow uploads and never reads that branch -- peaceiris committed
+      # correct content to a place nothing was serving, succeeded, and left the
+      # live site unchanged with no error anywhere.
       #
-      # `keep_files: true` is load-bearing rather than a convenience: the default
-      # clears the branch before copying. For the same reason never set
-      # `force_orphan` here -- it discards the branch history outright. The cost is
-      # that nothing is ever deleted, so a renamed page keeps serving its old URL
-      # until someone prunes it by hand.
-      - uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+      # This also ends the `keep_files: true` compromise that came with it: a
+      # branch push either clears the branch or never deletes, so a renamed page
+      # kept serving its old URL until pruned by hand. An artifact deployment
+      # replaces the site wholesale, so the deployed tree is exactly the built
+      # tree.
+      - name: Setup Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: dist
-          publish_branch: gh-pages
-          keep_files: true
-          # From bot-setup's outputs rather than repeated literals, so the
-          # identity the site commits under is declared in exactly one place.
-          user_name: ${{ steps.bot-config.outputs.bot-user }}
-          user_email: ${{ steps.bot-config.outputs.bot-email }}
-          commit_message: "docs: publish ${{ inputs.version }} ${{ github.sha }}"
+          # The VitePress site, with rustdoc already grafted in at api/ by the
+          # build job when `include-api` is set.
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
 
       # `github.repository` is the STRING "owner/repo", not an object, so
       # `github.repository.name` resolved to empty and both docs.rs links came out
@@ -248,7 +248,11 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           REPO: ${{ github.event.repository.name }}
           SHA: ${{ github.sha }}
-          BOT: ${{ steps.bot-config.outputs.bot-user }}
+          # The URL deploy-pages actually published to, rather than a restatement
+          # of where a branch push went. `bot-config` is gone with peaceiris, so
+          # the identity row it fed went with it -- an artifact deployment has no
+          # committer.
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
         run: |
           set -eo pipefail
 
@@ -260,9 +264,9 @@ jobs:
             echo "| | |"
             echo "| --- | --- |"
             echo "| **Site** | <${SITE}> |"
+            echo "| **Deployment** | <${PAGE_URL}> |"
             echo "| **Version** | \`${VERSION}\` |"
             echo "| **Commit** | \`${SHA}\` |"
-            echo "| **Branch** | \`gh-pages\` (pushed by ${BOT}) |"
             echo ""
             echo "### API reference"
             echo ""
