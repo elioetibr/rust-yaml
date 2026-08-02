@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 # git-cliff configuration for conventional commits changelog
 # https://git-cliff.org
 
@@ -53,23 +57,28 @@ split_commits = false
 # section order (two-digit => lexical sort == numeric); the body template
 # strips them via `striptags`. Parser order is first-match-wins, so the
 # `chore(release)` skip and `chore(deps)` rule precede the catch-all `chore`.
+# >>> commit-config:parsers (generated from commit-types.toml -- do not edit) >>>
 commit_parsers = [
-    { message = "^init", group = "<!-- 00 -->🎉 Initialization" },
-    { message = "^feat", group = "<!-- 01 -->🚀 Features" },
-    { message = "^fix", group = "<!-- 02 -->🐛 Bug Fixes" },
-    { message = "^refactor", group = "<!-- 03 -->🔧 Refactoring" },
-    { message = "^perf", group = "<!-- 04 -->⚡ Performance" },
-    { message = "^doc", group = "<!-- 05 -->📚 Documentation" },
-    { message = "^style", group = "<!-- 06 -->🎨 Styling" },
-    { message = "^test", group = "<!-- 07 -->🧪 Testing" },
-    { message = "^build", group = "<!-- 08 -->📦 Build" },
-    { message = "^ci", group = "<!-- 09 -->👷 CI/CD" },
-    { message = "^chore\\(release\\)", skip = true },
-    { message = "^release", skip = true },
-    { message = "^chore\\(deps", group = "<!-- 10 -->⬆️ Dependencies" },
-    { message = "^chore", group = "<!-- 11 -->🔨 Miscellaneous" },
-    { message = "^revert", group = "<!-- 12 -->⏪ Reverts" },
+  { message = "^chore\\(release\\): prepare for", skip = true },
+  { message = "^chore\\(deps.*\\)", skip = true },
+  { message = "^chore\\(pr\\)", skip = true },
+  { message = "^chore\\(pull\\)", skip = true },
+  { message = "^feat", group = "<!-- 0 -->🚀 Features" },
+  { message = "^fix", group = "<!-- 1 -->🐛 Bug Fixes" },
+  { message = "^refactor", group = "<!-- 2 -->🚜 Refactor" },
+  { message = "^docs", group = "<!-- 3 -->📚 Documentation" },
+  { message = "^perf", group = "<!-- 4 -->⚡ Performance" },
+  { message = "^style", group = "<!-- 5 -->🎨 Styling" },
+  { message = "^test", group = "<!-- 6 -->🧪 Testing" },
+  { message = "^chore", group = "<!-- 7 -->⚙️ Miscellaneous Tasks" },
+  { message = "^ci", group = "<!-- 7 -->⚙️ Miscellaneous Tasks" },
+  { message = "^build", group = "<!-- 7 -->⚙️ Miscellaneous Tasks" },
+  { message = "^init", group = "<!-- 7 -->🎉 Repository Initialization" },
+  { body = ".*security", group = "<!-- 8 -->🛡️ Security" },
+  { message = "^revert", group = "<!-- 9 -->◀️ Revert" },
+  { message = ".*", group = "<!-- 10 -->💼 Other" },
 ]
+# <<< commit-config:parsers <<<
 protect_breaking_commits = false
 filter_commits = false
 topo_order = false
