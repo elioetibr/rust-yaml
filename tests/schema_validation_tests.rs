@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Comprehensive integration tests for schema validation
 
 use regex::Regex;

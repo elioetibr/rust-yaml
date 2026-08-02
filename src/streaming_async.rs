@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Async streaming YAML parser for non-blocking I/O
 //!
 //! This module provides async/await support for streaming YAML parsing,

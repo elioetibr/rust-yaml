@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Tests for YAML directives (%YAML and %TAG)
 
 use rust_yaml::{Value, Yaml};

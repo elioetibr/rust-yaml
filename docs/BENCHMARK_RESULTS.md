@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # rust-yaml vs Other Rust YAML Libraries - Comparison Results
 
 ## Security Comparison ✅ **ADVANTAGE: rust-yaml**

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Serde integration for rust-yaml.
 //!
 //! Provides a full serde data format (Serializer + Deserializer) and

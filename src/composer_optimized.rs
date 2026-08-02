@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Optimized YAML composer that reduces allocations and cloning
 //!
 //! This module provides an optimized composer implementation that

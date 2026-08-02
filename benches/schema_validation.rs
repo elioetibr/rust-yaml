@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Performance benchmarks for schema validation
 
 use criterion::{Criterion, criterion_group, criterion_main};

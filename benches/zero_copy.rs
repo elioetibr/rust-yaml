@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Zero-copy parsing benchmarks
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};

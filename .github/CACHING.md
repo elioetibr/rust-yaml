@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # GitHub Actions Caching Strategy
 
 This document outlines the caching strategy implemented for optimal CI/CD performance.

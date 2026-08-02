@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Demonstration of the streaming parser with zero-copy optimizations
 
 #![allow(clippy::needless_raw_string_hashes)] // Test YAML strings

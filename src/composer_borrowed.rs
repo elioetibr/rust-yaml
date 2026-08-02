@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Zero-copy YAML composer for converting events to borrowed nodes
 //!
 //! This module provides a composer that minimizes allocations by using

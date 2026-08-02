@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # YAML Test Suite Conformance Roadmap
 
 Live tracker for closing the gap between rust-yaml and the yaml/yaml-test-suite

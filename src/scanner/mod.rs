@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! YAML scanner for tokenization
 
 use crate::{Error, Limits, Position, ResourceTracker, Result, error::ErrorContext};

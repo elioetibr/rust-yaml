@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: YAML test suite contributors
+//
+// SPDX-License-Identifier: MIT
+
 //! Convert rust-yaml parser events into the yaml-test-suite tree DSL.
 
 use rust_yaml::parser::{BasicParser, EventType, Parser as ParserTrait, ScalarStyle};

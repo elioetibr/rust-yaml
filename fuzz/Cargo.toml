@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 [package]
 name = "rust-yaml-fuzz"
 version = "0.0.0"

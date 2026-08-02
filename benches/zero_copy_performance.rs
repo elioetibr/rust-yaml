@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use rust_yaml::{BasicScanner, Scanner, ZeroScanner};
 use std::time::Duration;

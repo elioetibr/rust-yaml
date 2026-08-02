@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! YAML composer for converting events to nodes
 
 use crate::resolver::{PlainScalarType, resolve_plain_scalar, value_tag_error};

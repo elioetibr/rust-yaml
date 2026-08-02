@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 [submodule "yaml-test-suite"]
 	path = yaml-test-suite/data
 	url = https://github.com/yaml/yaml-test-suite.git

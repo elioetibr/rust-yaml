@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Zero-copy parsing optimizations for YAML processing
 //!
 //! This module provides data structures and utilities for minimizing allocations

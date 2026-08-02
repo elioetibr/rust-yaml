@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Fuzzing
 
 Coverage-guided fuzz targets for `rust-yaml`, built on

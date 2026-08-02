@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: YAML test suite contributors
+//
+// SPDX-License-Identifier: MIT
+
 //! YAML test suite integration for rust-yaml.
 //!
 //! Dev-only, not published. Drives the upstream `yaml/yaml-test-suite` corpus

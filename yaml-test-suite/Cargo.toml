@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: YAML test suite contributors
+#
+# SPDX-License-Identifier: MIT
+
 [package]
 name = "yaml-test-suite"
 description = "Conformance harness driving the upstream yaml/yaml-test-suite against rust-yaml (dev-only, not published)"

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Optimized YAML value representation with reduced allocations
 //!
 //! This module provides an optimized Value type that reduces cloning

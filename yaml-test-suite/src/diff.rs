@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: YAML test suite contributors
+//
+// SPDX-License-Identifier: MIT
+
 //! Compare expected vs actual event-tree lines.
 
 const NO_DIFF: &str = "  (no difference found)";

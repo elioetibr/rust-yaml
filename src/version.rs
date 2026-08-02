@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! YAML version handling for `%YAML` directive support.
 //!
 //! The YAML 1.2.2 spec is the default. A `%YAML 1.1` directive enables

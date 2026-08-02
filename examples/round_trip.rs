@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Round-trip utility: reads a YAML file, parses it, then re-serializes it
 //! to a file prefixed with "parsed_".
 //!

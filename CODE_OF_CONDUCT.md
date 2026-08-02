@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Contributor Covenant Code of Conduct
 
 ## Our Pledge
@@ -22,10 +28,8 @@ community include:
 - Giving and gracefully accepting constructive feedback
 - Accepting responsibility and apologizing to those affected by our mistakes,
   and learning from the experience
-
 - Focusing on what is best not just for us as individuals, but for the overall
   community
-
 - Using welcoming and inclusive language
 - Being patient with newcomers and those learning
 - Acknowledging the contributions of all community members
@@ -36,15 +40,12 @@ Examples of unacceptable behavior include:
 
 - The use of sexualized language or imagery, and sexual attention or advances of
   any kind
-
 - Trolling, insulting or derogatory comments, and personal or political attacks
 - Public or private harassment
 - Publishing others' private information, such as a physical or email address,
   without their explicit permission
-
 - Conduct which could reasonably be considered inappropriate in a professional
   setting
-
 - Dismissive or hostile behavior toward contributions or questions
 - Gatekeeping or elitist attitudes
 - Spam or off-topic discussions

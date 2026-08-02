@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Version Management Guide
 
 This project uses [GitVersion](https://gitversion.net/) for semantic versioning and automated release management.

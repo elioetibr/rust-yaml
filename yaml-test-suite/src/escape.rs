@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: YAML test suite contributors
+//
+// SPDX-License-Identifier: MIT
+
 //! Escape sequences for scalar values in the yaml-test-suite tree DSL.
 
 pub fn escape_value(s: &str) -> String {

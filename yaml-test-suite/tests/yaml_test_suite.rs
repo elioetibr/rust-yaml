@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: YAML test suite contributors
+//
+// SPDX-License-Identifier: MIT
+
 //! Integration tests using the official YAML test suite.
 //!
 //! Runs all test cases from <https://github.com/yaml/yaml-test-suite>

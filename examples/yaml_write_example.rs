@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Example demonstrating YAML writing and serialization capabilities
 
 use indexmap::IndexMap;

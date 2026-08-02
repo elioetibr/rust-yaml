@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Enhanced streaming YAML parser with true incremental parsing
 //!
 //! This module provides advanced streaming capabilities including:

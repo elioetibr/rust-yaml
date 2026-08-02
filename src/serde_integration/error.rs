@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Bridge between rust-yaml's `Error` type and serde's error traits.
 
 use crate::{Error, Position};

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Integration tests for the source-preserving `RoundTripDocument` API:
 //! byte-for-byte identity on realistic config files, and surgical edits that
 //! leave every untouched byte alone.

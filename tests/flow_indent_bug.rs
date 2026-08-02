@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use rust_yaml::{Value, Yaml, YamlConfig};
 
 /// Bug 1 (parser): After a flow value ([], {}, [{...}]) at an indentation level,

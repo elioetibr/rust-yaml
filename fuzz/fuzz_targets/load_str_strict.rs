@@ -1,5 +1,8 @@
-#![no_main]
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
+#![no_main]
 use libfuzzer_sys::fuzz_target;
 use rust_yaml::{Limits, LoaderType, Yaml, YamlConfig};
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::needless_raw_string_hashes)]
 

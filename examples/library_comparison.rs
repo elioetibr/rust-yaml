@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Comparison and benchmarking of rust-yaml features
 
 use rust_yaml::{Limits, Value, Yaml, YamlConfig};

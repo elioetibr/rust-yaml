@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Streaming parser implementation for efficient YAML processing
 //!
 //! This module provides a streaming parser that processes YAML incrementally,

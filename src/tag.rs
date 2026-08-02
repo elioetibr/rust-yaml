@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! YAML tag resolution and handling system
 //!
 //! This module implements the full YAML 1.2 tag resolution mechanism,

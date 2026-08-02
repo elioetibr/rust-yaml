@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Profiling Report — `rust_yaml::from_str` (serde load)
 
 **Target:** `serde_load` bench, case `rust_yaml/large` (the `fixtures/config_large.yaml`

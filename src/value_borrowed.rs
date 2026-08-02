@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Zero-copy YAML value representation using borrowed data
 //!
 //! This module provides a borrowed version of the Value enum that minimizes

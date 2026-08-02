@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # YAML Merge Key Support
 
 This library fully supports YAML merge keys (`<<`) as specified in YAML 1.2.

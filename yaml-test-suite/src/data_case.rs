@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: YAML test suite contributors
+//
+// SPDX-License-Identifier: MIT
+
 //! `data/` directory test case model + loader.
 //!
 //! The loader functions ([`load_all_tests`], [`load_single_test`]) are added

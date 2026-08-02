@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Pre-commit Configuration for rust-yaml
 
 This document describes the enterprise-grade pre-commit configuration for the rust-yaml project, designed to ensure code quality, security, and consistency across all commits.

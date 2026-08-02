@@ -1,5 +1,8 @@
-#![cfg(feature = "serde")]
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
+#![cfg(feature = "serde")]
 use criterion::{Criterion, criterion_group, criterion_main};
 use serde::Deserialize;
 use std::hint::black_box;

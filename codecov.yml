@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 codecov:
   require_ci_to_pass: true
   max_report_age: off

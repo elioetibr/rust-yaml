@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Source-preserving, byte-for-byte round-trip documents.
 //!
 //! [`RoundTripDocument`] keeps the **original source text verbatim** and pairs

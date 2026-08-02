@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! serde::Serializer that builds a `Value` tree.
 //!
 //! The public `to_string` / `to_writer` entry points (Task 8) will serialize

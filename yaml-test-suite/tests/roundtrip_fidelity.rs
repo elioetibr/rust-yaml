@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: YAML test suite contributors
+//
+// SPDX-License-Identifier: MIT
+
 //! Byte-fidelity property over the official YAML test suite:
 //! every input that `RoundTripDocument::parse_all` ACCEPTS must be
 //! reproduced byte-for-byte by concatenating the parsed documents.

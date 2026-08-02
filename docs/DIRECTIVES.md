@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # YAML Directives Support
 
 rust-yaml fully supports YAML directives as defined in the YAML 1.2 specification. This includes both `%YAML` version directives and `%TAG` tag shorthand directives.

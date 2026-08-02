@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! serde::Deserializer that drives serde from a [`Value`].
 //!
 //! `from_str` / `from_slice` / `from_reader` parse YAML to `Value` via the

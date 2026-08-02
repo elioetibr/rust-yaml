@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Regression tests proving that crafted-malformed YAML never panics
 //! the parser. Each input here is shaped to exercise the parser-state
 //! stack edges that previously used `.unwrap()` (#17, #18) or other

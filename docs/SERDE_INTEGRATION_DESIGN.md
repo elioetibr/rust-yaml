@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Rust Yaml contributors
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Serde Integration Design
 
 **Tracks:** issue #21 — `feat(serde): full Serialize + Deserialize integration`.

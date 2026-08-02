@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Tests for security resource limits
 
 use rust_yaml::{Limits, LoaderType, Yaml, YamlConfig};

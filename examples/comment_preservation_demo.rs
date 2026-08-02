@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Comprehensive demonstration of comment preservation features
 
 use rust_yaml::{CommentedValue, Comments, LoaderType, Style, Value, Yaml, YamlConfig};

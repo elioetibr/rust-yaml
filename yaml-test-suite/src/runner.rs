@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: YAML test suite contributors
+//
+// SPDX-License-Identifier: MIT
+
 //! Run a single [`DataTestCase`] and classify the outcome.
 
 use crate::data_case::DataTestCase;

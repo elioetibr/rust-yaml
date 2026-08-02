@@ -1,5 +1,8 @@
-#![cfg(feature = "serde")]
+// SPDX-FileCopyrightText: Rust Yaml contributors
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
+#![cfg(feature = "serde")]
 use indexmap::IndexMap;
 use proptest::prelude::*;
 use rust_yaml::Value;
