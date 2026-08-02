@@ -191,10 +191,16 @@ jobs:
   publish-docs:
     name: Publish Documentation
     needs: [validate, publish-crate]
+    # Deliberately NOT gated on `should_publish`. A dry run sets that to false
+    # and skips publish-crate, so gating on it here skipped this job too and the
+    # `dry-run` input below became unreachable -- the docs were never built on a
+    # dry run, which is the run that most wants to know whether they still build.
+    # `!= 'failure'` admits the skipped case; `!cancelled()` keeps a cancelled
+    # run from publishing.
     if: |
-      success() &&
-      needs.publish-crate.result == 'success' &&
-      needs.validate.outputs.should_publish == 'true'
+      !cancelled() &&
+      needs.validate.result == 'success' &&
+      needs.publish-crate.result != 'failure'
     uses: ./.github/workflows/docs.yml
     with:
       dry-run: ${{ github.event.inputs.dry_run == 'true' }}
