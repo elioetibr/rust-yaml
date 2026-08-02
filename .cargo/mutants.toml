@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# cargo-mutants configuration.
+#
+# Exclude the SAME host-untestable entry/ABI boilerplate that tarpaulin.toml
+# excludes from coverage: mutating a binary `main` or a `#[wasm_bindgen]` shim
+# only ever yields "missed" mutants because they can't be exercised by a host
+# `cargo test`. All real logic lives in lib.rs / `*_logic` functions and IS
+# mutation-tested. Kept in sync with tarpaulin.toml's `exclude-files` by hand —
+# the two tools use different config formats, so the list can't be shared.
+exclude_globs = ["src/main.rs", "src/lib.rs"]
