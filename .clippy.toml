@@ -1,6 +1,23 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 # Clippy configuration for rust-yaml
 # Allow some pedantic warnings that are noisy but not critical
 
-# Allow format_push_string for test data generation where performance isn't critical
+# Maximum cognitive complexity per function — lower threshold for auditability
+# Scanner/parser state machines may need targeted allows, but default should be tight
+cognitive-complexity-threshold = 30
+
+# Allow enum variants to share a prefix (ErrorKind has many related variants)
+enum-variant-name-threshold = 5
+
+# Max function arguments — Skald types are simple, keep this reasonable
+too-many-arguments-threshold = 10
+
+# Type complexity — keep low for readable, auditable type signatures
+type-complexity-threshold = 300
+
+# Allow panicking in tests (unwrap/expect) but forbid in production code
 allow-expect-in-tests = true
 allow-unwrap-in-tests = true
