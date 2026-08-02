@@ -17,7 +17,7 @@ permissions:
 # Keyed on the ref, not on "pages": this no longer contends for the Pages
 # deployment, it just should not build the same ref twice at once.
 concurrency:
-  group: api-docs-${{ github.ref_name }}
+  group: api-documentation-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:

@@ -615,8 +615,12 @@ jobs:
     # site went unbuilt on precisely the run meant to prove it still builds. The
     # `publish` input is the gate now, matching how `publish-crates` gates only
     # the steps that touch the registry.
+    # `contents: write` dropped with peaceiris: gh-pages.yml deploys through the
+    # Pages artifact now and commits nothing. A calling job cannot grant a called
+    # workflow more than it holds, but it can hold more than the callee needs --
+    # which is how a stale scope survives a refactor unnoticed.
     permissions:
-      contents: write
+      contents: read
       pages: write
       id-token: write
     uses: ./.github/workflows/gh-pages.yml

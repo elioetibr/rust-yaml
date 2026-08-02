@@ -5,7 +5,7 @@
 name: Fuzz
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}
+  group: fuzz-${{ github.ref_name }}
   cancel-in-progress: false
 
 on:
@@ -18,11 +18,25 @@ on:
   schedule:
     # Nightly at 03:17 UTC.
     - cron: "17 3 * * *"
+  workflow_call:
+    inputs:
+      duration:
+        description: "Seconds to run each fuzz target"
+        required: false
+        # `type` is mandatory on a workflow_call input -- omitting it is a syntax
+        # error, not a defaulted-to-string convenience the way it is under
+        # workflow_dispatch. Declared on both so the two blocks stay identical.
+        type: string
+        default: "300"
   workflow_dispatch:
     inputs:
       duration:
         description: "Seconds to run each fuzz target"
         required: false
+        # `type` is mandatory on a workflow_call input -- omitting it is a syntax
+        # error, not a defaulted-to-string convenience the way it is under
+        # workflow_dispatch. Declared on both so the two blocks stay identical.
+        type: string
         default: "300"
 
 permissions:
@@ -69,7 +83,12 @@ jobs:
     env:
       # Captured into an env var here (the safe pattern); steps reference the
       # shell variable $FUZZ_SECONDS, never `${{ }}` interpolation in `run:`.
-      FUZZ_SECONDS: ${{ github.event.inputs.duration || '300' }}
+      # `inputs.duration`, not `github.event.inputs.duration`: the latter is
+      # populated only on workflow_dispatch, so a caller passing `duration`
+      # through workflow_call would have been silently ignored and every
+      # called run would have used the 300s fallback. `inputs` covers both,
+      # and is simply empty on the push/schedule triggers.
+      FUZZ_SECONDS: ${{ inputs.duration || '300' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

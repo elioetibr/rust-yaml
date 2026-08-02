@@ -5,14 +5,20 @@
 name: Linter
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: linter-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: ["**"]
   push:
     branches: [main, develop]
+
+# Least privilege at the top; every job that needs more declares it itself.
+# A workflow-level write scope is granted to EVERY job, including ones that only
+# check out and compile -- so a compromised action in any of them inherits it.
+permissions:
+  contents: read
 
 jobs:
   pre-commit:
@@ -74,6 +80,12 @@ jobs:
 
   committed:
     name: Commit Message Lint (committed)
+    # Posts the conventional-commit help as a PR comment
+    # (github.rest.issues.createComment). Pull request comments live on the
+    # issues API, so this is the scope that grants it.
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:

@@ -15,12 +15,23 @@ name: Publish to crates.io
 # This workflow focuses solely on the publishing process.
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: publish-to-crates-io-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: false
 
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to publish (e.g., 0.1.0)"
+        required: true
+        type: string
+      dry_run:
+        description: "Perform a dry run without publishing"
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       version:
@@ -40,10 +51,11 @@ env:
 # deployed to Pages; that job now only builds an artifact, and gh-pages.yml is
 # what publishes the site. `id-token: write` stays -- crates-io-auth-action mints
 # an OIDC token for the registry.
+# Least privilege at the top; every job that needs more declares it itself.
+# A workflow-level write scope is granted to EVERY job, including ones that only
+# check out and compile -- so a compromised action in any of them inherits it.
 permissions:
-  contents: write
-  id-token: write
-  pull-requests: write
+  contents: read
 
 jobs:
   validate:
@@ -123,6 +135,11 @@ jobs:
 
   publish-crate:
     name: Publish to crates.io
+    # `rust-lang/crates-io-auth-action` exchanges an OIDC token for a registry
+    # token, which is the only elevated thing this workflow does.
+    permissions:
+      contents: read
+      id-token: write
     needs: [validate]
     if: needs.validate.outputs.should_publish == 'true'
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}

@@ -5,8 +5,8 @@
 name: CI
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 on:
   push:
@@ -15,16 +15,16 @@ on:
       - "**.md"
       - "benches/**"
   pull_request:
-    branches: ["**"]
+    branches: [main, develop]
     paths-ignore:
       - "**.md"
       - "benches/**"
 
+# Least privilege at the top; every job that needs more declares it itself.
+# A workflow-level write scope is granted to EVERY job, including ones that only
+# check out and compile -- so a compromised action in any of them inherits it.
 permissions:
-  contents: write
-  id-token: write
-  pages: write
-  pull-requests: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -795,15 +795,26 @@ jobs:
         version,
       ]
     name: Build
+    # The only job here that writes: it creates and force-pushes tags and cuts
+    # a GitHub release. Every other job in this workflow reads.
+    permissions:
+      contents: write
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     timeout-minutes: 20
     env:
       BUILD_OS: ubuntu-latest
       BUILD_ARCH: x86_64
       BUILD_TARGET: x86_64-unknown-linux-gnu
-    # Ensure only one build job runs at a time to prevent resource conflicts
+    # Ensure only one build job runs at a time to prevent resource conflicts.
+    #
+    # `ci-` literal, like the workflow-level group above, rather than
+    # `${{ github.workflow }}`: in a CALLED workflow that expression resolves to
+    # the CALLER's name, so the group would silently merge with whatever invoked
+    # it. ci.yml is top-level today and would render the same string either way,
+    # which is exactly what makes the expression easy to leave in place until the
+    # day someone adds `workflow_call` and it deadlocks.
     concurrency:
-      group: build-ubuntu-latest-x86_64-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      group: ci-build-ubuntu-latest-x86_64-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
     steps:
       - name: Generate GitHub App Token

@@ -9,9 +9,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: benchmark-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -19,15 +21,21 @@ env:
   CARGO_INCREMENTAL: 1
   RUST_BACKTRACE: 1
 
+# Least privilege at the top; every job that needs more declares it itself.
+# A workflow-level write scope is granted to EVERY job, including ones that only
+# check out and compile -- so a compromised action in any of them inherits it.
 permissions:
   contents: read
-  id-token: write
-  pages: write
-  pull-requests: write
 
 jobs:
   benchmark:
     name: Run Benchmarks
+    # `auto-push: true` on github-action-benchmark commits results to the
+    # benchmark data branch, and `comment-on-alert: true` writes a comment on a
+    # regression. Both are writes; nothing else in this workflow is.
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ${{ vars.RUNS_ON || 'ubuntu-latest' }}
     # Criterion CLI flags (--sample-size / --measurement-time /
     # --warm-up-time below) cut bench wall time ~3-4x vs defaults

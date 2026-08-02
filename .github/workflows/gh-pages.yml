@@ -11,7 +11,7 @@ name: GitHub Pages Docs
 # between a top level workflow and 'Publish'". A fixed prefix cannot collide with
 # the caller's group however this workflow is reached.
 concurrency:
-  group: gh-pages-${{ github.ref_name }}
+  group: github-pages-docs-${{ github.ref_name }}
   cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
 
 # The VitePress site under `docs/`. Built on every change so a broken site is

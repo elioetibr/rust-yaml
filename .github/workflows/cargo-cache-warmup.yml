@@ -5,13 +5,14 @@
 name: Cargo Cache Warmup
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}
+  group: cargo-cache-warmup-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: false
 
 on:
   schedule:
     # Run daily at midnight UTC
     - cron: "0 0 * * *"
+  workflow_call:
   workflow_dispatch: # Allow manual triggering
 
 env:
@@ -19,11 +20,11 @@ env:
   RUST_BACKTRACE: 1
   CARGO_INCREMENTAL: 0
 
+# Least privilege at the top; every job that needs more declares it itself.
+# A workflow-level write scope is granted to EVERY job, including ones that only
+# check out and compile -- so a compromised action in any of them inherits it.
 permissions:
   contents: read
-  id-token: write
-  pages: write
-  pull-requests: write
 
 jobs:
   warmup-cache:
