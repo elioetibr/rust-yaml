@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: Rust Yaml contributors
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# cargo-audit configuration — https://docs.rs/cargo-audit
+# Scans Cargo.lock against the RustSec advisory database.
+# cargo-audit reads this file ONLY at `.cargo/audit.toml` (never repo-root).
+
+[advisories]
+# Advisory IDs to silence (false positives / mitigated). e.g. ["RUSTSEC-2023-0001"]
+ignore = []
+# Surface these informational advisory kinds as warnings.
+informational_warnings = ["unmaintained", "unsound", "notice"]
+# Minimum CVSS severity that counts: low | medium | high | critical
+severity_threshold = "medium"
+
+[database]
+url = "https://github.com/RustSec/advisory-db.git"
+fetch = true
+stale = false
+
+[output]
+# Strict: fail (non-zero exit) on warnings too — yanked/unmaintained/unsound,
+# not just CVEs. Add IDs to `advisories.ignore` above when an upstream advisory
+# is mitigated and you want CI green again.
+deny = ["warnings"]
+format = "terminal"
+quiet = false
+show_tree = true
+
+[yanked]
+enabled = true
+update_index = true
