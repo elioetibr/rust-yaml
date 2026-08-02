@@ -4,15 +4,12 @@
 #
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-# Assembles the GitHub Pages bundle from two independent generators:
+# Builds rustdoc and prepares it for the GitHub Pages artifact.
 #
-#   VitePress (docs/)  -> site root   the hand-written guides and reference
-#   rustdoc            -> /api/       the generated API documentation
-#
-# They are merged into one directory rather than deployed separately because a
-# repository gets exactly one Pages deployment. Nesting rustdoc under /api/
-# keeps every page it previously published reachable (only the prefix moves)
-# while the VitePress home page takes the root.
+# rustdoc ONLY. The VitePress site under docs/ is a separate concern with its
+# own workflow; this script briefly assembled both into one bundle, which made
+# two publishers compete for the single Pages deployment a repository gets.
+# Keeping the two apart is what lets each be reasoned about on its own.
 
 set -Eeuo pipefail
 
@@ -20,35 +17,16 @@ set -Eeuo pipefail
 # trusting the caller's working directory.
 cd "$(git rev-parse --show-toplevel)"
 
-OUT="target/gh-pages"
-
-echo "==> Building VitePress site"
-# `--frozen-lockfile` is the point of running install here at all: it fails when
-# bun.lock and package.json disagree, so a dependency edit that was never locked
-# breaks the docs build instead of quietly resolving to something else in CI.
-bun install --cwd docs --frozen-lockfile
-bun run --cwd docs build
+OUT="target/doc"
 
 echo "==> Building rustdoc"
 cargo doc --all-features --no-deps
 
-echo "==> Assembling $OUT"
-# Removed rather than overwritten: a page deleted from docs/ must disappear from
-# the bundle, and cp alone would leave the previous run's copy in place. This
-# matters locally; CI always starts from an empty target/.
-rm -rf "$OUT"
-mkdir -p "$OUT"
-
-# `dist/.` (not `dist`) copies the directory *contents* into $OUT rather than
-# nesting a `dist/` inside it.
-cp -R docs/.vitepress/dist/. "$OUT/"
-cp -R target/doc "$OUT/api"
-
 # rustdoc's own root listing is unhelpful when the workspace has more than one
-# member, so send /api/ straight to the library. Written unconditionally:
+# member, so send the root straight to the library. Written unconditionally:
 # whether cargo emits target/doc/index.html varies by version, and this must not
 # depend on that.
-cat > "$OUT/api/index.html" << 'EOF'
+cat > "$OUT/index.html" << 'EOF'
 <!doctype html>
 <html lang="en">
   <head>
@@ -66,10 +44,9 @@ cat > "$OUT/api/index.html" << 'EOF'
 </html>
 EOF
 
-# Without this, Pages runs the bundle through Jekyll, which drops every path with
+# Without this, Pages runs the output through Jekyll, which drops every path with
 # a leading underscore -- that silently guts rustdoc's asset directories.
 touch "$OUT/.nojekyll"
 
-echo "==> Pages bundle ready: $OUT"
-printf '    root pages : %s\n' "$(find "$OUT" -maxdepth 1 -name '*.html' | wc -l | tr -d ' ')"
-printf '    api/       : %s\n' "$(du -sh "$OUT/api" | cut -f1)"
+echo "==> rustdoc ready: $OUT"
+printf '    size: %s\n' "$(du -sh "$OUT" | cut -f1)"

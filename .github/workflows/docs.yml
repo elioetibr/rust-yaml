@@ -5,19 +5,20 @@
 name: Deploy Documentation
 
 on:
-  # Callable so release.yml can publish the site as part of a release rather
-  # than duplicating the build. Kept dispatchable for out-of-band redeploys.
+  # Callable so release.yml can publish the API documentation as part of a
+  # release rather than duplicating the build. Kept dispatchable for out-of-band
+  # redeploys.
   workflow_call:
     inputs:
       dry-run:
-        description: "Assemble the bundle but skip the Pages deployment"
+        description: "Build rustdoc but skip the Pages deployment"
         required: false
         default: false
         type: boolean
   workflow_dispatch:
     inputs:
       dry-run:
-        description: "Assemble the bundle but skip the Pages deployment"
+        description: "Build rustdoc but skip the Pages deployment"
         required: false
         default: false
         type: boolean
@@ -73,14 +74,8 @@ jobs:
       - name: Install Rust toolchain
         uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
 
-      # The VitePress half of the bundle needs a JS runtime. `bun-version-file`
-      # reads docs/.bun-version so CI and `mise run docs:site` cannot drift onto
-      # different bun releases.
-      - name: Install Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: "docs/.bun-version"
-
+      # No JS runtime here on purpose: this workflow builds rustdoc and nothing
+      # else. The VitePress site under docs/ has its own workflow, which owns bun.
       - name: Cache cargo registry
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -92,7 +87,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
 
-      - name: Build documentation
+      - name: Build rustdoc
         run: |
           chmod +x .github/scripts/create-docs-pages.sh
           .github/scripts/create-docs-pages.sh
@@ -103,14 +98,14 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          # The assembled bundle (VitePress at the root, rustdoc under api/),
-          # not target/doc -- uploading the latter would publish the API
-          # documentation alone and drop the entire site.
-          path: "target/gh-pages"
+          # rustdoc only. This briefly pointed at an assembled bundle that also
+          # carried the VitePress site; that made this workflow and the site
+          # workflow compete for the one Pages deployment a repository gets.
+          path: "target/doc"
 
   deploy:
     name: Deploy to GitHub Pages
-    # A dry run still exercises build-docs, which is where the site can actually
+    # A dry run still exercises build-docs, which is where rustdoc can actually
     # break; only the publish is skipped.
     if: ${{ !inputs.dry-run }}
     # Declared per-job, not inherited: `deploy-pages` mints an OIDC token and
