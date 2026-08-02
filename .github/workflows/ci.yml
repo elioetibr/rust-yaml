@@ -877,6 +877,16 @@ jobs:
           arch: ${{ env.BUILD_ARCH }}
 
       - name: Set version
+        # Release machinery runs on the default branch ONLY. Off it this job
+        # builds and tests -- the dry run -- and produces nothing durable.
+        #
+        # Ungated, every branch push force-pushed a tag and cut a GitHub
+        # release; release.yml triggers on `release: published`, so a feature
+        # branch would have published its prerelease to crates.io, which cannot
+        # be undone. It also broke outright: `cargo set-version` refuses a
+        # prerelease of the version Cargo.toml already declares, because
+        # `1.1.0-branch.1` sorts BELOW `1.1.0`.
+        if: ${{ github.ref_name == github.event.repository.default_branch }}
         run: cargo set-version ${{ needs.version.outputs.version }}
 
       - name: Build
@@ -886,6 +896,7 @@ jobs:
         run: cargo test --target ${{ env.BUILD_TARGET }} --verbose
 
       - name: Tag
+        if: ${{ github.ref_name == github.event.repository.default_branch }}
         id: tag
         shell: bash -l {0}
         env:
@@ -932,6 +943,7 @@ jobs:
           fi
 
       - name: Generate release notes
+        if: ${{ github.ref_name == github.event.repository.default_branch }}
         id: generate-release-notes
         # Build the GitHub Release body from the conventional-commit history
         # with git-cliff (config: cliff.toml) and write it to RELEASE_NOTES.md
@@ -963,6 +975,7 @@ jobs:
           args: --latest --strip header --output RELEASE_NOTES.md
 
       - name: Release
+        if: ${{ github.ref_name == github.event.repository.default_branch }}
         id: release
         shell: bash -l {0}
         env:
