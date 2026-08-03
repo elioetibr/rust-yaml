@@ -1513,143 +1513,6 @@ echo "✅ HTML coverage report generated in target/llvm-cov/html/"
 # Versioning
 # ============================================================================
 
-# Force-refresh tags before any derivation. GitVersion reads the tag graph, so a
-# stale local view silently produces a different number than CI computes from the
-# same commit.
-[tasks."git:tags:fetch"]
-alias = []
-description = "Force-refresh tags from origin so GitVersion sees the graph CI sees"
-hide = true
-shell = "bash -c"
-run = '''
-#!/usr/bin/env bash
-
-set -Eeuo pipefail
-
-git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-git remote get-url origin >/dev/null 2>&1 || exit 0
-
-# `--force` is the whole point: without it git leaves an existing tag alone and
-# the refresh is a no-op precisely when it matters.
-git fetch --tags --force --quiet origin 2>/dev/null || {
-    echo "version: could not reach origin; tags may be stale and the computed version wrong" >&2
-    exit 0
-}
-'''
-
-# Every version answer routes through here, so refreshing tags at this one point
-# makes them all correct by construction rather than each remembering to do it.
-[tasks."version:json"]
-alias = []
-depends = ["git:tags:fetch"]
-description = "Print the GitVersion JSON for the working tree, or an empty object"
-hide = true
-shell = "bash -c"
-run = '''
-#!/usr/bin/env bash
-
-set -eo pipefail
-
-# `/nocache` because GitVersion's cache invalidates on the COMMIT, not on the tag
-# graph, so an entry computed before a tag moved keeps being served at exactly
-# the moment the answer changed. Verified here on 2026-08-02: a cached run
-# reported 1.1.1 while a `/nocache` run on the same commit reported 1.2.0.
-#
-# `/config` is explicit even though auto-discovery finds GitVersion.yml from the
-# repository root (checked: identical output either way). It costs nothing and
-# makes this agree with .github/workflows/version.yml, which passes
-# `configFilePath` for the same reason.
-#
-# `AssemblySemVer`/`AssemblySemFileVer` are .NET four-part assembly versions
-# (`1.1.1.0`). Nothing in a Rust project consumes them, and they read as a third
-# and fourth disagreeing version next to `SemVer` and `MajorMinorPatch`. This
-# shape -- the two deletions plus a derived `MajorMinor` -- is the same object
-# .github/workflows/version.yml composes, so local and CI answers match.
-gitversion /nocache /config GitVersion.yml /output json \
-  | jq -Sr 'del(.AssemblySemVer, .AssemblySemFileVer) + {MajorMinor: "\(.Major).\(.Minor)"}' \
-    2>/dev/null || echo '{}'
-'''
-
-# `SemVer` rather than `MajorMinorPatch`: SemVer carries the commits-since-source
-# counter (`1.1.1-1`), which is what makes the tag name a unique point in history
-# rather than one that collides on the next commit. The floating names are
-# derived from this string by version:tags:floating, so an explicitly named tag
-# gets the same treatment without a second gitversion call.
-[tasks."version:tag"]
-alias = []
-description = "Print the exact tag name derived from version:json, e.g. v1.1.1-1"
-hide = true
-shell = "bash -c"
-run = '''
-#!/usr/bin/env bash
-
-set -Eeuo pipefail
-
-VERSION="$(mise run version:json | jq -r '.SemVer // empty')"
-
-# Empty means version:json fell back to `{}` -- gitversion is missing or refused
-# the tree. Tagging `vnull` from that is worse than stopping.
-if [ -z "${VERSION}" ]; then
-    echo "error: version:json supplied no SemVer; is gitversion installed?" >&2
-    echo "       Name the tag explicitly, e.g. mise run version:tags:floating v1.1.1-1" >&2
-    exit 1
-fi
-
-echo "v${VERSION}"
-'''
-
-# Derived from the tag STRING, not from version:json fields. `MajorMinor` is not
-# something gitversion emits -- version:json synthesizes it in jq -- so reading
-# fields here would either duplicate that jq or depend on a key raw gitversion
-# output does not have. Splitting the tag also means an explicitly named tag
-# floats exactly like a derived one.
-[tasks."version:tags:floating"]
-alias = []
-description = "Print the floating tag names for a version, e.g. v1.1.1 v1.1 v1"
-hide = true
-shell = "bash -c"
-run = '''
-#!/usr/bin/env bash
-
-set -Eeuo pipefail
-
-TAG="${usage_tag:-$(mise run version:tag)}"
-
-# v1.1.1-1 -> 1.1.1: drop the leading v, then the pre-release/build suffix.
-BASE="${TAG#v}"
-BASE="${BASE%%[-+]*}"
-
-IFS='.' read -r MAJOR MINOR _ <<<"${BASE}"
-MINOR="${MINOR:-0}"
-
-# A version like `1.1` yields `v1.1` twice; emit each name once.
-printf 'v%s\nv%s.%s\nv%s\n' "${BASE}" "${MAJOR}" "${MINOR}" "${MAJOR}" | awk '!seen[$0]++'
-'''
-usage = 'arg "[tag]" help="tag to derive from, e.g. v1.1.1-1; defaults to the version:tag derivation"'
-
-[tasks.version]
-alias = ["ver", "version:show"]
-description = "Show version information from Cargo.toml, src/version.rs, GitVersion.yml and git"
-shell = "bash -c"
-usage = '''
-flag "-v --verbose" help="Trace each command before running it (set -x)"
-'''
-run = '''
-#!/usr/bin/env bash
-
-set -Eeuo pipefail
-if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
-
-echo "📋 Version Information:"
-echo "Cargo.toml:     $(mise run version:read)"
-if [ -f GitVersion.yml ]; then
-    echo "GitVersion:     $(grep 'next-version:' GitVersion.yml | sed -E 's/.*next-version: *"?([^"]*)"?.*/\1/')"
-fi
-if git rev-parse --git-dir >/dev/null 2>&1; then
-    echo "Git commit:     $(git rev-parse --short HEAD)"
-    echo "Git branch:     $(git branch --show-current)"
-fi
-'''
 
 [tasks."version:read"]
 alias = ["version:current"]
@@ -1670,84 +1533,6 @@ if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
 grep -m1 -E '^version = "' Cargo.toml | sed -E 's/version = "(.*)"/\1/'
 '''
 
-[tasks."version:check"]
-alias = ["ver:check"]
-description = "Fail if any file that restates the crate version has drifted from Cargo.toml (the anchor)"
-shell = "bash -c"
-usage = '''
-flag "-v --verbose" help="Trace each command before running it (set -x)"
-'''
-run = '''
-#!/usr/bin/env bash
-
-set -Eeuo pipefail
-if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
-
-# Cargo.toml is the anchor. Drift arrives from either direction: the anchor moves
-# and a restatement is forgotten, or a restatement is hand-edited on its own.
-# GitVersion's computed SemVer is deliberately NOT compared here — it carries
-# CommitsSinceVersionSource and so advances on every commit, which no committed
-# file can be gated against; only its `next-version` anchor is.
-#
-# src/version.rs is deliberately NOT checked: despite what CLAUDE.md says, it
-# holds `YamlVersion` (the YAML *spec* version, 1.1 vs 1.2) and carries no crate
-# version at all. The crate version reaches the code via CARGO_PKG_VERSION.
-anchor="$(mise run version:read)"
-fail=0
-
-check() {
-    local label="$1" found="$2"
-    if [ "$found" != "$anchor" ]; then
-        echo "  ❌ $label: $found (expected $anchor)"
-        fail=1
-    else
-        echo "  ✅ $label: $found"
-    fi
-}
-
-echo "📋 Version anchor (Cargo.toml): $anchor"
-if [ -f GitVersion.yml ]; then
-    check "GitVersion.yml" "$(grep 'next-version:' GitVersion.yml | sed -E 's/.*next-version: *"?([^"]*)"?.*/\1/')"
-fi
-
-if [ "$fail" -ne 0 ]; then
-    echo "❌ Version drift detected — run 'mise run version:sync'" >&2
-    exit 1
-fi
-echo "✅ All version restatements match the anchor"
-'''
-
-[tasks."version:sync"]
-alias = ["ver:sync"]
-description = "Rewrite every file that restates the crate version to match Cargo.toml. Cargo.lock is cargo's to own — run a cargo command afterwards"
-shell = "bash -c"
-usage = '''
-flag "-v --verbose" help="Trace each command before running it (set -x)"
-'''
-run = '''
-#!/usr/bin/env bash
-
-set -Eeuo pipefail
-if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
-
-anchor="$(mise run version:read)"
-echo "📋 Syncing every restatement to $anchor"
-
-# BSD sed (macOS) requires an argument to -i; GNU sed treats it as the suffix.
-# `-i.bak` + rm is the only spelling both accept.
-if [ -f GitVersion.yml ]; then
-    sed -i.bak -E "s/(next-version: *\"?)[0-9]+\.[0-9]+\.[0-9]+(\"?)/\1$anchor\2/" GitVersion.yml && rm -f GitVersion.yml.bak
-fi
-
-# Cargo owns Cargo.lock; refresh it here rather than editing it by hand, or the
-# cargo:lock:check gate fails on the very commit that bumped the version.
-cargo metadata --format-version 1 >/dev/null
-echo "✅ Versions synced — review the diff before committing"
-'''
-
-# ============================================================================
-# Commit messages
-# ============================================================================
 
 [tasks."commit:lint"]
 alias = ["commit-lint", "lint:commit"]
@@ -1859,12 +1644,419 @@ fi
 echo "✅ .gitignore matches ignorefile.toml"
 '''
 
+# -- Local release tags --
+#
+# Two kinds of tag, from one version. The exact tag (`v0.0.1-1`, GitVersion's
+# SemVer) names a unique point in history and is created once. The floating tags
+# (`v0.0.1`, `v0.0`, `v0`) are pointers that move to the newest release sharing
+# those leading numbers, so `v0` always answers "latest 0.x".
+#
+# They are derived from the exact tag by string surgery rather than from a second
+# `version:json` call, so an explicitly named tag floats identically to a derived
+# one and neither path needs gitversion twice.
+#
+# Neither task pushes, and neither has a remote-deleting counterpart: publishing
+# a tag is a separate, deliberate act, and `git push --delete` on a tag someone
+# already fetched is not undoable from here.
+
+[tasks."git:tag:create"]
+alias = ["tag:create"]
+description = "Create a signed, annotated tag locally and move the floating tags onto it. Never pushes"
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+TAG="${usage_tag:-$(mise run version:tag)}"
+
+if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+    echo "error: tag ${TAG} already exists; delete it first:" >&2
+    echo "       mise run git:tag:delete ${TAG}" >&2
+    exit 1
+fi
+
+# A tag names a commit, so uncommitted work is not in what gets tagged. Worth
+# saying out loud, not worth refusing over.
+if [ -n "$(git status --porcelain)" ]; then
+    echo "warning: working tree is dirty -- ${TAG} points at HEAD, without those changes." >&2
+fi
+
+git tag -s "${TAG}" -m "${usage_message:-${TAG}}"
+echo "created ${TAG} at $(git rev-parse --short HEAD); local only, not pushed"
+
+if [ "${usage_exact:-}" = "true" ]; then
+    exit 0
+fi
+
+# -f because floating tags exist to be repointed; a tag equal to the exact one
+# (a SemVer with no pre-release) is skipped rather than force-rewritten.
+for float in $(mise run version:tags:floating "${TAG}"); do
+    if [ "${float}" != "${TAG}" ]; then
+        git tag -f -s "${float}" -m "${float}" >/dev/null
+        echo "moved ${float} -> $(git rev-parse --short HEAD)"
+    fi
+done
+'''
+shell = "bash -c"
+usage = '''
+arg "[tag]" help="exact tag name, e.g. v0.0.1-1; defaults to the version:tag derivation"
+flag "-m --message <message>" help="annotation message; defaults to the tag name"
+flag "--exact" help="create only the exact tag; leave the floating tags where they are"
+'''
+
+[tasks."git:tag:delete"]
+alias = ["tag:delete"]
+description = "Delete a LOCAL tag by name. Never touches a remote"
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+# The tag is named, never derived. `version:tag` reads gitversion, and gitversion
+# reads the tags -- so the moment `git:tag:create` lands `v0.0.1`, the derivation
+# stops answering `v0.0.1-1` and starts answering `v0.0.1`. A delete that guessed
+# would remove a different tag from the one create had just made.
+TAG="${usage_tag}"
+
+if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+    echo "error: no local tag ${TAG}." >&2
+    exit 1
+fi
+
+git tag -d "${TAG}"
+
+# Floating tags are NOT removed by default: `v0` points at whichever release is
+# newest, which is usually not the one being deleted, so taking it away would
+# drop a pointer to a release this command never touched.
+if [ "${usage_floating:-}" = "true" ]; then
+    for float in $(mise run version:tags:floating "${TAG}"); do
+        if [ "${float}" != "${TAG}" ] && git rev-parse -q --verify "refs/tags/${float}" >/dev/null; then
+            git tag -d "${float}"
+        fi
+    done
+fi
+'''
+shell = "bash -c"
+usage = '''
+arg "<tag>" help="exact tag name to delete, e.g. v0.0.1-1 (required; never derived)"
+flag "--floating" help="also delete the floating tags that this version would move"
+'''
+
+# GitVersion derives the version from the TAG GRAPH, and `git fetch` does NOT
+# update a tag that already exists locally -- so a tag rewritten upstream stays
+# pinned to the old commit forever, silently.
+#
+# That is not hypothetical. `v0.0.1-1` pointed at a pre-rewrite commit locally
+# and at the init commit on origin. Locally GitVersion found no REACHABLE source,
+# counted from the root and said 0.1.0-10; CI fetched origin's tags, anchored on
+# the init commit and said 0.1.0-9. Same commit, same GitVersion 6.8.2, one
+# off-by-one -- and it only surfaced because a workflow warned that Cargo.toml
+# disagreed with the run.
+#
+# Never fatal. A version task has to keep working offline and in a clone with no
+# remote; a stale graph gives a wrong answer, no network merely gives an old one.
+[tasks."git:tags:fetch"]
+alias = []
+description = "Force-refresh tags from origin so GitVersion sees the graph CI sees"
+hide = true
+run = '''
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+git remote get-url origin >/dev/null 2>&1 || exit 0
+
+# `--force` is the whole point: without it git leaves an existing tag alone and
+# the refresh is a no-op precisely when it matters.
+git fetch --tags --force --quiet origin 2>/dev/null || {
+    echo "version: could not reach origin; tags may be stale and the computed version wrong" >&2
+    exit 0
+}
+'''
+shell = "bash -c"
+
+# Emits the GitVersion stamp the router serves from GET /version. Hidden because
+# it is plumbing: the compose tasks source it, nobody runs it directly. Failure is
+# not fatal — an unstamped deployment answers "unknown", which beats refusing to
+# start over a version string.
+[tasks."version:json"]
+alias = []
+# Every version answer in this file routes through here -- `version`,
+# `version:tag`, `version:sync --from-git` and `release:prepare` all shell out
+# to it -- so refreshing tags at this one point makes all four correct by
+# construction rather than each remembering to do it.
+depends = ["git:tags:fetch"]
+description = "Print the GitVersion JSON for the working tree, or an empty object"
+hide = true
+run = '''
+#!/usr/bin/env bash
+set -eo pipefail
+# `/nocache` because GitVersion's cache invalidates on the COMMIT, not on the
+# tag graph. `git:tag:create` moves tags onto the current commit, so an entry
+# computed before the tag keeps being served at exactly the moment the answer
+# changed -- deleting every tag at HEAD does not disturb it either. The tasks
+# above force-fetch tags for this same reason; caching the result undoes it.
+#
+# `AssemblySemVer`/`AssemblySemFileVer` are .NET four-part assembly versions
+# (`0.0.1.0`). Nothing in a Rust project consumes them, and they read as a third
+# and fourth disagreeing version next to `SemVer` and `MajorMinorPatch` in the
+# emitted version JSON.
+gitversion /nocache /output json \
+  | jq -Sr 'del(.AssemblySemVer, .AssemblySemFileVer) + {MajorMinor: "\(.Major).\(.Minor)"}' \
+    2>/dev/null || echo '{}'
+'''
+
+# The exact tag name the `git:tag:*` tasks default to, so the derivation lives in
+# one place. `SemVer` rather than `MajorMinorPatch`: SemVer carries the
+# commits-since-source counter (`0.0.1-1`), which is what makes the tag name a
+# unique point in history rather than one that collides on the next commit. The
+# floating tags are derived from this string by the tasks themselves, so an
+# explicitly named tag gets the same treatment without a second gitversion call.
+# Hidden for the same reason `version:json` is -- it is plumbing.
+[tasks."version:tag"]
+alias = []
+description = "Print the exact tag name derived from version:json, e.g. v0.0.1-1"
+hide = true
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+VERSION="$(mise run version:json | jq -r '.SemVer // empty')"
+
+# Empty means version:json fell back to `{}` -- gitversion is missing or refused
+# the tree. Tagging `vnull` from that is worse than stopping.
+if [ -z "${VERSION}" ]; then
+    echo "error: version:json supplied no SemVer; is gitversion installed?" >&2
+    echo "       Name the tag explicitly, e.g. mise run git:tag:create v0.0.1-1" >&2
+    exit 1
+fi
+
+echo "v${VERSION}"
+'''
+shell = "bash -c"
+
+# The floating tag names for a version, newest-first: `v0.0.1`, `v0.0`, `v0`.
+#
+# Derived from the tag STRING, not from `version:json` fields. `MajorMinor` is
+# not something gitversion emits -- `version:json` synthesizes it in jq -- so
+# reading fields here would either duplicate that jq or depend on a key raw
+# gitversion output does not have. Splitting the tag also means an explicitly
+# named tag floats exactly like a derived one.
+[tasks."version:tags:floating"]
+alias = []
+description = "Print the floating tag names for a version, e.g. v0.0.1 v0.0 v0"
+hide = true
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+TAG="${usage_tag:-$(mise run version:tag)}"
+
+# v0.0.1-1 -> 0.0.1: drop the leading v, then the pre-release/build suffix.
+BASE="${TAG#v}"
+BASE="${BASE%%[-+]*}"
+
+IFS='.' read -r MAJOR MINOR _ <<<"${BASE}"
+MINOR="${MINOR:-0}"
+
+# A version like `0.0` yields `v0.0` twice; emit each name once.
+printf 'v%s\nv%s.%s\nv%s\n' "${BASE}" "${MAJOR}" "${MINOR}" "${MAJOR}" | awk '!seen[$0]++'
+'''
+shell = "bash -c"
+usage = 'arg "[tag]" help="tag to derive from, e.g. v0.0.1-1; defaults to the version:tag derivation"'
+
+[tasks.version]
+alias = ["semver", "ver", "version:show"]
+description = "Print GitVersion's SemVer for the working tree, e.g. 0.0.1-1 (the release input; NOT what the committed files are gated against -- see version:check)"
+run = "mise run version:json | jq -r '.SemVer'"
+
+[tasks."version:sync"]
+alias = ["ver:sync"]
+description = "Write the Cargo.toml [workspace.package] version into every file that restates it; pass --check to report drift instead of writing"
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+# Cargo.toml's [workspace.package] version is the anchor: it is what `cargo
+# publish` uploads and what crates.io enforces, and it moves only on a
+# deliberate bump. `mise run version` is deliberately NOT the anchor -- its
+# SemVer carries CommitsSinceVersionSource, so it advances on EVERY commit and a
+# gate against it could never converge: the commit that sets Cargo.toml to
+# 0.0.1-2 is itself what makes the expected value 0.0.1-3.
+#
+# Only files that CLAIM the current version are listed below. mise.toml holds
+# nine `v0.0.1-1` strings that are examples in help text ("e.g. v0.0.1-1"); a
+# repo-wide scan would rewrite those on a bump and corrupt the documentation.
+# Member crates carry `version.workspace = true` and cannot drift at all.
+anchor="$(taplo get -f Cargo.toml '.workspace.package.version')"
+checking="${usage_check:-false}"
+from_git="${usage_from_git:-false}"
+drift=0
+
+# Reads are structured (taplo, jq); writes are anchored substitutions through a
+# temp file, because taplo has no `set` and `sed -i` spells its backup argument
+# incompatibly on macOS and GNU.
+edit() {
+    local file="$1" script="$2" tmp
+    tmp="$(mktemp)"
+    sed -E "$script" "$file" >"$tmp" && mv "$tmp" "$file"
+}
+
+# True when the site disagrees. Records rather than exits, so one run reports
+# every stale site instead of stopping at the first.
+stale() {
+    local label="$1" found="$2" want="$3"
+    if [ "$found" = "$want" ]; then
+        return 1
+    fi
+    if [ "$checking" = true ]; then
+        printf 'version drift: %s has "%s", expected "%s"\n' "$label" "$found" "$want" >&2
+        drift=1
+    else
+        printf 'version: %s "%s" -> "%s"\n' "$label" "$found" "$want"
+    fi
+    return 0
+}
+
+# `--from-git` moves the anchor itself, so a release bump is computed rather
+# than hand-edited. Everything below then propagates from it exactly as before.
+#
+# `SemVer`, matching `version:tag`: the project version carries the
+# commits-since-source counter, so `0.1.0-10` and not `0.1.0`. One field feeds
+# both the files and the tag, and neither can drift from the other.
+#
+# THE COUNTER MAKES THIS SELF-REFERENTIAL, so the release commit must be an
+# AMEND. `CommitsSinceVersionSource` is the commit count -- 10 at HEAD, with
+# `git rev-list --count HEAD` agreeing exactly -- so writing `0.1.0-10` and then
+# adding a NEW commit lands that string at count 11 and the file is stale the
+# instant it is written. `git commit --amend` leaves the count alone and the
+# value stays true. The alternative is to cut the tag immediately, which resets
+# the distance to 0.
+#
+# Known consequence, accepted deliberately: everything after the hyphen makes
+# this a SemVer PRERELEASE, and `cargo install` resolves an implicit `*` that
+# never selects one, so installs need `--version 0.1.0-10` spelled out.
+if [ "$from_git" = true ]; then
+    computed="$(mise run version:json | jq -r '.SemVer // empty')"
+    if [ -z "$computed" ]; then
+        echo "version: gitversion produced no SemVer; is it installed?" >&2
+        exit 1
+    fi
+    if stale "Cargo.toml [workspace.package] version" "$anchor" "$computed"; then
+        # `^version = "` matches the [workspace.package] key alone: `rust-version`
+        # does not start the line with `version`, and the dependency entries spell
+        # it inline inside a table.
+        [ "$checking" = true ] || edit Cargo.toml \
+            "s|^(version = \")[^\"]*(\")|\1${computed}\2|"
+    fi
+    anchor="$computed"
+fi
+
+# `cargo publish` rejects a path dependency whose `version` disagrees with the
+# crate it resolves to, so these are load-bearing rather than cosmetic.
+#
+# Discovered from the dependency table rather than listed, so adding a crate to
+# the workspace does not silently leave it ungated. Selecting on `path` is what
+# makes that safe: it picks exactly the LOCAL crates, whose version must track
+# the anchor, and skips registry dependencies, whose versions are their own.
+# Globbing the member directories would be wrong in the other direction: a
+# member with no [workspace.dependencies] entry has nothing declaring a version
+# for it to disagree with.
+# `|| true` because [workspace.dependencies] is OPTIONAL. taplo exits non-zero
+# with "no values matched the pattern" when the table is absent, and under
+# `set -e` that aborted the whole drift guard rather than skipping a section
+# this workspace simply does not have.
+deps="$(taplo get -f Cargo.toml -o json '.workspace.dependencies' 2>/dev/null \
+    | jq -r 'to_entries[] | select(.value.path) | .key' 2>/dev/null || true)"
+for dep in $deps; do
+    found="$(taplo get -f Cargo.toml ".workspace.dependencies.${dep}.version")"
+    if stale "Cargo.toml [workspace.dependencies] ${dep}" "$found" "$anchor"; then
+        [ "$checking" = true ] || edit Cargo.toml \
+            "s|^(${dep} = .*version = \")[^\"]*(\")|\1${anchor}\2|"
+    fi
+done
+
+found="$(jq -r '.version' docs/package.json)"
+if stale "docs/package.json .version" "$found" "$anchor"; then
+    [ "$checking" = true ] || edit docs/package.json \
+        "s|^(  \"version\": \")[^\"]*(\")|\1${anchor}\2|"
+fi
+
+# README.md tells readers which version to depend on, so a stale value here is
+# worse than cosmetic: it publishes install instructions for a release that is
+# no longer current. Two spellings, both anchored to `rust-yaml =` at the start
+# of a line:
+#
+#     rust-yaml = "1.1.0"
+#     rust-yaml = { version = "1.1.0", features = [...] }
+#
+# Matched NARROWLY on purpose. The same file carries `version: "1.1.0"` inside a
+# sample YAML document in a Rust example -- illustrative data, not a
+# declaration -- and a looser pattern would rewrite that too, editing prose to
+# track a number it was never claiming.
+readme_found="$(grep -oE '^rust-yaml = (\{ version = )?"[^"]*"' README.md \
+    | grep -oE '"[^"]*"$' | tr -d '"' | sort -u | tr '\n' ' ')"
+readme_found="${readme_found% }"
+if [ -n "$readme_found" ] && stale "README.md rust-yaml dependency" "$readme_found" "$anchor"; then
+    if [ "$checking" != true ]; then
+        edit README.md "s|^(rust-yaml = \")[^\"]*(\")|\1${anchor}\2|"
+        edit README.md "s|^(rust-yaml = \{ version = \")[^\"]*(\")|\1${anchor}\2|"
+    fi
+fi
+
+# Markdown restates the version tag-style, with the leading `v`, so the expected
+# string differs from the anchor by that prefix.
+#
+# The `-N` suffix is OPTIONAL in the pattern. It used to be mandatory, which was
+# invisible while every version carried one; the moment `--from-git` writes a
+# release version like 0.1.0 the match fails, `found` comes back empty, the
+# `continue` below fires and the file is silently skipped -- drift that no gate
+# reports.
+# No doc in this repository restates the version yet -- docs/reference/cli.md is
+# inherited from a project that has one, and grepping a path that does not exist
+# made this task fail outright ("No such file or directory") rather than skip.
+# The `[ -e ]` guard keeps the loop correct when the list is later populated.
+for doc in docs/reference/cli.md; do
+    [ -e "$doc" ] || continue
+    found="$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' "$doc" | sort -u | tr '\n' ' ')"
+    found="${found% }"
+    [ -n "$found" ] || continue
+    if stale "$doc" "$found" "v${anchor}"; then
+        [ "$checking" = true ] || edit "$doc" \
+            "s|v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|v${anchor}|g"
+    fi
+done
+
+if [ "$drift" -ne 0 ]; then
+    echo "Run \`mise run version:sync\` to align them with Cargo.toml." >&2
+    exit 1
+fi
+'''
+shell = "bash -c"
+usage = '''
+flag "--check" help="report drift and exit non-zero instead of writing"
+flag "--from-git" help="move the anchor to GitVersion's SemVer first, computing the release version instead of hand-editing Cargo.toml; amend rather than adding a commit, or the counter goes stale"
+'''
+
+[tasks."version:check"]
+alias = ["version:drift", "ver:check"]
+description = "Drift guard: fail if any file restating the version disagrees with Cargo.toml (run by the pre-commit hook and safe to run in CI)"
+run = "mise run version:sync --check"
+
 [tasks.changelog]
 alias = ["cliff", "changelog:build"]
 description = "Regenerate CHANGELOG.md from the commit history with git-cliff (config in cliff.toml). Never hand-edit CHANGELOG.md"
 shell = "bash -c"
 usage = '''
 flag "-v --verbose" help="Trace each command before running it (set -x)"
+flag "-t --tag <tag>" help="Render unreleased commits under this version instead of [Unreleased], e.g. v1.2.0-42"
+flag "--stdout" help="Print to stdout instead of writing CHANGELOG.md (use with --tag to preview a release)"
+flag "--latest" help="Emit only the most recent release section (a GitHub release body, not the full history)"
+flag "--strip <part>" help="Drop a part of the rendered output: header, footer or all"
+flag "-o --output <path>" help="Write somewhere other than CHANGELOG.md, e.g. RELEASE_NOTES.md"
 '''
 run = '''
 #!/usr/bin/env bash
@@ -1872,9 +2064,132 @@ run = '''
 set -Eeuo pipefail
 if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
 
-echo "📝 Regenerating CHANGELOG.md..."
-git-cliff --output CHANGELOG.md
-echo "✅ CHANGELOG.md regenerated"
+# `--tag` answers "what will the changelog look like when I cut this version?"
+# without creating the tag first. git-cliff otherwise files every untagged
+# commit under [Unreleased], so the section heading, its date and the compare
+# link are only visible after tagging -- too late to notice the tag does not
+# match `tag_pattern` in cliff.toml and was ignored.
+#
+# Pair it with --stdout to preview without touching the file.
+# The ONE git-cliff invocation in this repository, and the reason the flags
+# below exist: CI used to call orhun/git-cliff-action separately to build the
+# release body, so the tool, its config path and its range selectors lived in
+# two places that could drift. `.github/workflows/ci.yml` now runs this task.
+#
+# `--latest` is a RANGE selector, not a formatting one: without it the release
+# body would contain the entire changelog history. `--tag` only labels
+# unreleased commits; it does not filter.
+args=()
+[ -n "${usage_tag:-}" ] && args+=(--tag "${usage_tag}")
+[ "${usage_latest:-false}" = "true" ] && args+=(--latest)
+[ -n "${usage_strip:-}" ] && args+=(--strip "${usage_strip}")
+
+output="${usage_output:-CHANGELOG.md}"
+
+if [ "${usage_stdout:-false}" = "true" ]; then
+    git-cliff "${args[@]}"
+    exit 0
+fi
+
+echo "📝 Writing ${output}${usage_tag:+ (as ${usage_tag})}..."
+git-cliff "${args[@]}" --output "${output}"
+echo "✅ ${output} written"
+'''
+
+# Cuts the changelog at the version GitVersion derives and commits it, so the
+# heading, the tag and the crate version all come from one number.
+#
+# It shells out to `changelog` above rather than calling git-cliff itself:
+# git-cliff is invoked in exactly one place in this file, so flags like
+# `--tag` and the config path cannot drift between two call sites.
+#
+# `git cliff --bump` is deliberately NOT used to pick the version. It runs its
+# own conventional-commit inference, which disagrees with GitVersion on this
+# history -- and GitVersion is what .github/workflows/version.yml acts on, so a
+# cliff-inferred number would head the changelog under a version the release
+# pipeline never produces.
+[tasks."changelog:gen"]
+alias = ["changelog:cut"]
+description = "Cut CHANGELOG.md at the GitVersion version and commit it locally with [skip ci]"
+shell = "bash -c"
+usage = '''
+flag "-v --verbose" help="Trace each command before running it (set -x)"
+flag "--no-commit" help="Write CHANGELOG.md but leave the commit to you"
+'''
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
+
+# `// empty` so a gitversion failure yields "" rather than the string "null",
+# which would otherwise be tagged as v-null and look deliberate.
+version="$(mise run version:json | jq -r '.SemVer // empty')"
+if [ -z "${version}" ]; then
+    echo "changelog:gen: version:json produced no SemVer; is gitversion installed?" >&2
+    exit 1
+fi
+
+# Refuse a version cliff.toml would not recognise as a release. Off the default
+# branch GitVersion labels with the branch name (1.2.0-fix-tool-chains.1), and
+# `tag_pattern` accepts only `vX.Y.Z` or `vX.Y.Z-<digits>`. `--tag` bypasses that
+# pattern, so without this check the heading renders happily now and the tag is
+# silently ignored later -- the section reappears as [Unreleased] on the next
+# regeneration.
+if ! printf '%s' "v${version}" | grep -Eq '^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9]+.*)?$'; then
+    echo "changelog:gen: refusing v${version} -- cliff.toml's tag_pattern would not treat it as a release." >&2
+    echo "               GitVersion labels non-default branches with the branch name; cut this from the" >&2
+    echo "               default branch, or use --no-commit to preview." >&2
+    exit 1
+fi
+
+# Refuse to cut while the files that restate the version disagree with
+# Cargo.toml. A changelog heading is a claim about a release, and publishing one
+# on top of drift records a version no file actually declares -- which is how
+# docs/package.json sat at 0.0.1-1 under a 1.1.0 anchor without anything
+# noticing.
+if ! mise run version:check >/dev/null 2>&1; then
+    echo "changelog:gen: version drift -- refusing to cut a changelog over it." >&2
+    mise run version:check 2>&1 | grep -E '^version drift:' >&2 || true
+    echo "               Run \`mise run version:sync\` to align them, then retry." >&2
+    exit 1
+fi
+
+# A WARNING, not a failure. version:check proves the restating files agree with
+# Cargo.toml; it does not prove Cargo.toml matches the version being cut. Off a
+# release the anchor legitimately trails GitVersion -- the counter advances on
+# every commit -- so this is worth saying, never worth stopping over.
+anchor="$(taplo get -f Cargo.toml '.workspace.package.version' 2>/dev/null || true)"
+if [ -n "${anchor}" ] && [ "${anchor}" != "${version}" ]; then
+    echo "note: Cargo.toml declares ${anchor}, cutting the changelog at ${version}." >&2
+    echo "      \`mise run version:sync --from-git\` moves the anchor if this is the release." >&2
+fi
+
+echo "📝 Cutting CHANGELOG.md at v${version}..."
+mise run changelog --tag "v${version}"
+
+if git diff --quiet -- CHANGELOG.md; then
+    echo "✅ CHANGELOG.md already current for v${version}; nothing to commit"
+    exit 0
+fi
+
+if [ "${usage_no_commit:-false}" = "true" ]; then
+    echo "✅ CHANGELOG.md written for v${version} (left uncommitted)"
+    exit 0
+fi
+
+# ONLY CHANGELOG.md is staged. `git commit -a` here would sweep in whatever
+# else happens to be dirty, and this commit is meant to carry one generated
+# file.
+git add CHANGELOG.md
+
+# `[skip ci]` is one of the five markers GitHub honours natively on push and
+# pull_request ([skip ci], [ci skip], [no ci], [skip actions], [actions skip]);
+# it skips the whole run, not individual jobs. -S because this repository
+# requires signed commits.
+git commit -S -m "docs(changelog): cut v${version} [skip ci]"
+
+echo "✅ committed: $(git log -1 --format='%h %s')"
 '''
 
 # ============================================================================
@@ -2072,4 +2387,282 @@ set -Eeuo pipefail
 if [ "${usage_verbose:-false}" = "true" ]; then set -x; fi
 
 echo "✅ Pre-push checks passed"
+'''
+
+# ============================================================================
+# crates.io registry state
+# ============================================================================
+# Ported from glaucus so `publish.yml` can call the same logic a human runs
+# before cutting a release. Both fail CLOSED: an inconclusive lookup stops the
+# caller instead of being read as "available".
+
+[tasks."crates:status"]
+alias = ["cs", "crates:check"]
+description = "Classify every publishable workspace crate on crates.io (absent / exists / version-taken) and verify ownership. Fails closed on any inconclusive lookup; prints a trailing bootstrap_needed=<bool> line for CI to consume"
+dir = "{{ config_root }}"
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+# Defaults to the MANIFEST version, because that is the version cargo will
+# actually upload -- `cargo publish` reads Cargo.toml and ignores whatever a
+# release pipeline computed. GitVersion and Cargo.toml drift routinely (CI warns
+# "Cargo.toml declares X but this run resolved Y"), and checking the resolved
+# version while cargo uploads the manifest one asks about a release that does not
+# exist: every crate reads "available", then cargo fails on the duplicates.
+version="${usage_version:-$(cargo metadata --no-deps --format-version 1 \
+    | jq -r '[.packages[] | select(.publish != []) | .version] | first // empty')}"
+: "${version:?could not determine a version to check}"
+verify="${usage_verify:-false}"
+owner="${usage_owner:-$(git config --get remote.origin.url | sed -E 's#.*[:/]([^/]+)/[^/]+$#\1#')}"
+
+ua="rust-yaml-publish-workflow (+https://github.com/${owner}/rust-yaml)"
+body="$(mktemp)"
+trap 'rm -f "$body"' EXIT
+
+# Writes the response body to $body and prints the HTTP status. `|| code=000`
+# REASSIGNS on transport failure rather than appending to curl's own "000"
+# output, which would otherwise produce a garbled "HTTP 000000".
+#
+# --retry-all-errors is what makes retrying useful: without it curl retries only
+# transient transport errors, not the 5xx crates.io returns while shedding load.
+probe() {
+    local code
+    code="$(curl -sL --retry 3 --retry-delay 2 --retry-all-errors --max-time 30 \
+        -H "User-Agent: $ua" -o "$body" -w '%{http_code}' "$1")" || code=000
+    printf '%s' "$code"
+}
+
+# crates.io shards the index by name length: 1/a, 2/ab, 3/a/abc, then ab/cd/abcd.
+#
+# The length comes from `wc -c`, not from the obvious parameter expansion: that
+# spelling opens with the brace-hash pair Tera reads as a comment, and would fail
+# this task at render time. See the note above the task.
+index_url() {
+    local name="$1" path len
+    len="$(printf '%s' "$name" | wc -c | tr -d ' ')"
+    case "$len" in
+    1) path="1/$name" ;;
+    2) path="2/$name" ;;
+    3) path="3/${name:0:1}/$name" ;;
+    *) path="${name:0:2}/${name:2:2}/$name" ;;
+    esac
+    printf 'https://index.crates.io/%s' "$path"
+}
+
+# `publish` is null for publishable crates and [] for `publish = false`, so this
+# never sends a dev-only harness to the registry.
+members="$(cargo metadata --no-deps --format-version 1 \
+    | jq -r '.packages[] | select(.publish != []) | .name' | sort)"
+
+absent=""
+taken=""
+foreign=""
+pending=""
+todo=""
+n_absent=0
+n_taken=0
+n_foreign=0
+n_pending=0
+n_todo=0
+n_total=0
+
+for crate in $members; do
+    n_total=$((n_total + 1))
+
+    code="$(probe "$(index_url "$crate")")"
+
+    case "$code" in
+    404) state=absent ;;
+    200)
+        if jq -r '.vers' <"$body" | grep -Fxq "$version"; then
+            state=version-taken
+        else
+            state=exists
+        fi
+        ;;
+    *)
+        echo "error: crates.io index returned HTTP $code for '$crate'" >&2
+        echo "       cannot confirm publish state; refusing to guess" >&2
+        exit 1
+        ;;
+    esac
+
+    # Post-publish mode asks the opposite question: everything should now be
+    # present at this version, and anything missing is merely not indexed yet.
+    if [ "$verify" = true ]; then
+        if [ "$state" = version-taken ]; then
+            echo "  OK      $crate $version -- https://crates.io/crates/$crate/$version"
+        else
+            pending="$pending $crate"
+            n_pending=$((n_pending + 1))
+            echo "  PENDING $crate $version not indexed yet"
+        fi
+        continue
+    fi
+
+    case "$state" in
+    absent)
+        absent="$absent $crate"
+        todo="$todo $crate"
+        n_absent=$((n_absent + 1))
+        n_todo=$((n_todo + 1))
+        echo "  NEW     $crate does not exist on crates.io -- needs a first publish"
+        ;;
+    version-taken)
+        taken="$taken $crate"
+        n_taken=$((n_taken + 1))
+        echo "  DONE    $crate $version already published"
+        ;;
+    exists)
+        # The name resolves, so ownership decides whether it is ours to publish
+        # to. A name held by another account is a hard stop: no token we hold can
+        # upload to it. Teams appear in the same array as users, so a crate owned
+        # only by a GitHub team is still matched.
+        code="$(probe "https://crates.io/api/v1/crates/$crate/owners")"
+        if [ "$code" != 200 ]; then
+            echo "error: crates.io owners returned HTTP $code for '$crate'" >&2
+            exit 1
+        fi
+        owners="$(jq -r '(.users // [])[].login' <"$body" | sort -u)"
+
+        if printf '%s\n' "$owners" | grep -Fxqi "$owner"; then
+            todo="$todo $crate"
+            n_todo=$((n_todo + 1))
+            echo "  OK      $crate $version available (owned by $owner)"
+        else
+            foreign="$foreign $crate"
+            n_foreign=$((n_foreign + 1))
+            echo "  FOREIGN $crate is owned by: $(printf '%s' "$owners" | tr '\n' ' ')"
+        fi
+        ;;
+    esac
+done
+
+if [ "$n_total" -eq 0 ]; then
+    echo "error: no publishable crates found" >&2
+    exit 1
+fi
+
+if [ "$verify" = true ]; then
+    if [ "$n_pending" -gt 0 ]; then
+        echo "not yet indexed (usually transient):$pending"
+    fi
+    exit 0
+fi
+
+if [ "$n_foreign" -gt 0 ]; then
+    echo "error: these crate names belong to another account:$foreign" >&2
+    echo "       rename the crate or request ownership" >&2
+    exit 1
+fi
+
+# A PARTIAL claim is resumable, not an error. crates.io rate-limits brand-new
+# crates to a burst of 5 and then one per 10 minutes, so a workspace with more
+# new names than that CANNOT land in a single `cargo publish` -- the run stops
+# mid-way with a 429 and leaves some names claimed and some not. Treating any
+# already-published version as fatal made that state unrecoverable: the retry
+# refused to start precisely because the first attempt had partly succeeded.
+#
+# Uploads are immutable, so re-publishing a taken version is impossible anyway;
+# excluding those crates and publishing the rest is the only move, and it is what
+# `todo` carries. When `todo` is empty the release is simply complete, which
+# keeps re-running this idempotent.
+echo "taken=$(printf '%s' "$taken" | sed 's/^ //')"
+echo "todo=$(printf '%s' "$todo" | sed 's/^ //')"
+
+if [ "$n_todo" -eq 0 ]; then
+    echo "nothing to publish: all $n_total crate(s) already at $version"
+    echo "bootstrap_needed=false"
+    exit 0
+fi
+
+if [ "$n_taken" -gt 0 ]; then
+    echo "resuming a partial publish: $n_taken of $n_total already at $version"
+fi
+
+# The trailing verdict, consumed by publish.yml to choose an auth method. A crate
+# that does not exist yet CANNOT have a Trusted Publishing config -- crates.io
+# requires the crate to exist before one can be created -- so OIDC cannot mint a
+# usable token for it and the first publish has to carry a real account token.
+if [ "$n_absent" -gt 0 ]; then
+    echo "first publish needed for:$absent"
+    echo "bootstrap_needed=true"
+else
+    echo "bootstrap_needed=false"
+fi
+'''
+shell = "bash -c"
+usage = '''
+flag "--version <version>" help="version to check (default: the workspace manifest version, which is what cargo publish uploads)"
+flag "--verify" help="post-publish mode: confirm every crate is indexed at this version instead of gating on availability"
+flag "--owner <owner>" help="expected crates.io owner login (default: the GitHub owner in remote.origin.url)"
+'''
+
+[tasks."crates:dev-only"]
+alias = ["cdo", "crates:unpublished"]
+description = "List workspace crates marked `publish = false` (bench, fuzz, conformance suite). `cargo package --workspace` ignores that flag, so release tooling must subtract this set explicitly; --flags emits ready-to-use --exclude arguments"
+dir = "{{ config_root }}"
+run = '''
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+verbose="${usage_verbose:-false}"
+as_flags="${usage_flags:-false}"
+
+# `publish` is the same tri-state `crates:status` keys off, read the other way
+# round: null = publishable anywhere, [] = `publish = false`, ["name"] = allowed
+# on specific registries only. The comparison is explicit because [] is TRUTHY in
+# jq -- `select(.publish)` would match every crate and select nothing useful.
+names="$(cargo metadata --no-deps --format-version 1 \
+    | jq -r '.packages[] | select(.publish == []) | .name' | sort)"
+
+# `grep -c .` rather than a parameter expansion: the obvious spelling for an
+# array length opens with the brace-hash pair Tera parses as a comment and would
+# fail this task at render time. See the note above `crates:status`.
+count="$(printf '%s' "$names" | grep -c . || true)"
+
+if [ "$verbose" = "true" ]; then
+    echo "crates:dev-only: $count crate(s) marked publish = false" >&2
+fi
+
+# An empty set is a DEFECT, not "nothing to exclude". It is reachable two ways
+# and both are bad: a harness lost its `publish = false` (that crate is now
+# publishable and the next tag would upload it), or this query stopped matching
+# cargo's metadata schema. Returning success with an empty list restores exactly
+# the behaviour the task exists to prevent -- callers would package the whole
+# workspace and cosign-sign the harnesses into the release -- and it would do so
+# silently, at a tag, which is the worst moment to find out.
+#
+# Same posture `crates:status` already takes: refuse to guess on an inconclusive
+# lookup. There is deliberately NO --allow-empty escape hatch. If this workspace
+# genuinely has no dev-only crates left, the fix is to delete this task and its
+# two call sites in publish.yml -- the subtraction they perform is then a no-op,
+# and a flag would only preserve dead machinery.
+if [ "$count" -eq 0 ]; then
+    {
+        echo 'crates:dev-only: no workspace crate declares publish = false -- refusing to continue.'
+        echo '  Expected at least yaml-test-suite.'
+        echo '  Either a harness lost its publish = false key, or this query no longer'
+        echo "  matches cargo's metadata schema. Inspect the raw values with:"
+        echo '    cargo metadata --no-deps --format-version 1 | jq ".packages[] | [.name, .publish]"'
+    } >&2
+    exit 1
+fi
+
+if [ "$as_flags" = "true" ]; then
+    # One line of `--exclude <name>` pairs, for `read -ra` in publish.yml. Safe
+    # to word-split on: cargo restricts crate names to alphanumerics, `-` and `_`.
+    printf '%s' "$names" | sed 's/^/--exclude /' | tr '\n' ' '
+    echo
+elif [ -n "$names" ]; then
+    printf '%s\n' "$names"
+fi
+'''
+shell = "bash -c"
+usage = '''
+flag "--flags" help="emit a single line of `--exclude <name>` arguments for cargo, instead of one bare name per line"
+flag "--verbose" help="report the resolved crate count on stderr before printing"
 '''
