@@ -467,7 +467,10 @@ tests/
 
 ### Coverage Goals
 
-- Maintain >90% code coverage
+- Every line you add or change must be covered — `codecov.yml` gates each PR on
+  patch coverage. Project-wide coverage is held by a no-regression check
+  (`target: auto`, 1% threshold), not a fixed percentage; `codecov.yml` is the
+  source of truth, so no number is restated here.
 - Focus on error paths and edge cases
 - Test both success and failure scenarios
 

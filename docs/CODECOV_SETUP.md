@@ -94,9 +94,15 @@ ls -la lcov.info
 
 ## Coverage Goals
 
-- Minimum coverage: 70%
-- Target coverage: 80%+
-- Critical modules: 90%+
+`codecov.yml` is the source of truth; these are its settings, not a second
+policy:
+
+- **Patch** — every PR is gated on the coverage of the lines it adds or
+  changes (`target: auto`, 1% threshold). This is the check contributors act on.
+- **Project** — `target: auto` with a 1% threshold, scoped to `src`, so overall
+  coverage may not regress by more than a point.
+- `range: "70...100"` sets only how the badge and report are coloured. It is
+  not a pass/fail threshold.
 
 ## Additional Resources
 

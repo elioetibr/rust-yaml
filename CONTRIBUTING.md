@@ -205,7 +205,12 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 - **KISS** — prefer the straightforward solution over the clever one.
 - **YAGNI** — build what is needed now, not what might be needed later.
 - **TDD** — write the failing test first, then the smallest change that passes
-  it, then refactor.
+  it, then refactor. **Every line you add or change must be covered**: that is
+  patch coverage, it is the number you control, and `codecov.yml` fails the PR
+  when it regresses. Project-wide coverage is held by a no-regression check
+  (`target: auto`, 1% threshold) rather than a fixed percentage — leave each
+  file better covered than you found it. `codecov.yml` is the source of truth;
+  do not restate a coverage number anywhere else.
 - **SOLID** — single responsibility; open for extension, closed for
   modification; subtypes substitutable for their base; no client forced to
   depend on methods it does not use; depend on abstractions, not concretions.
