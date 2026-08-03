@@ -197,7 +197,7 @@ export default defineConfig({
         items: [
           { text: "Roadmap", link: "/ROADMAP" },
           { text: "Development guide", link: "/DEVELOPMENT" },
-          { text: "Pre-commit", link: "/PRE_COMMIT" },
+          { text: "Git hooks", link: "/PRE_COMMIT" },
           { text: "Version management", link: "/VERSION_MANAGEMENT" },
           { text: "Codecov setup", link: "/CODECOV_SETUP" },
           { text: "docs.rs build fix", link: "/DOCS_RS_FIX" },

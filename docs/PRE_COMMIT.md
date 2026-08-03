@@ -4,287 +4,174 @@ SPDX-FileCopyrightText: Rust Yaml contributors
 SPDX-License-Identifier: MIT OR Apache-2.0
 -->
 
-# Pre-commit Configuration for rust-yaml
+# Git Hooks for rust-yaml
 
-This document describes the enterprise-grade pre-commit configuration for the rust-yaml project, designed to ensure code quality, security, and consistency across all commits.
+Git hooks are managed by [hk](https://hk.jdx.dev), configured in `hk.pkl` at the
+repository root. hk replaced the Python `pre-commit` framework; there is no
+`.pre-commit-config.yaml` and no `.githooks/` directory.
 
 ## Overview
 
-Our pre-commit configuration implements a comprehensive set of checks that run automatically before each commit, ensuring:
+One step list, named `linters` in `hk.pkl`, backs every hook. Each step declares
+a `glob`, and hk runs a step only when the staged file set matches it — so a
+commit touching a single Markdown file runs the whitespace fixers, `rumdl`, and
+the licence checks, but not clippy or `cargo deny`.
 
-- **Code Quality**: Rust formatting, linting, and compilation checks
-- **Security**: Vulnerability scanning, secret detection, and dependency auditing
-- **Standards**: Conventional commit messages, documentation, and consistency
-- **Compliance**: License checking and enterprise security policies
+The `pre-commit` hook runs with `fix = true` and `stash = "git"`: fixable
+problems are corrected and restaged in place, and unstaged work is stashed for
+the duration so the hooks see exactly what you are committing.
 
 ## Quick Start
 
 ### Installation
 
 ```bash
-# Install pre-commit (macOS)
-brew install pre-commit
-
-# Install pre-commit (other systems)
-pip install pre-commit
-
-# Set up the development environment (includes pre-commit setup)
-mise run setup
-
-# Or install pre-commit hooks manually
-mise run pre-commit-install
+mise run setup           # Full dev environment, including the hooks
+mise run hooks:install   # Or just (re)install the hooks — idempotent
 ```
 
 ### Basic Usage
 
+The hooks fire on their own once installed. To run them by hand:
+
 ```bash
-# Run all pre-commit hooks on all files
-mise run pre-commit-run
+mise run hooks:run       # Whole tree, the same set CI gates on
+mise run hooks:pre-push  # The heavier pre-push gate
+```
 
-# Update hooks to latest versions
-mise run pre-commit-update
+`mise run pre-commit` is an alias for `hooks:run`, and `mise run pre-push` for
+`hooks:pre-push`.
 
-# Clean pre-commit cache if needed
-mise run pre-commit-clean
+To skip the hooks for a single commit — use sparingly, CI runs them anyway:
+
+```bash
+git commit --no-verify
 ```
 
 ## Hook Categories
 
 ### 1. General Code Quality and Standards
 
-**Purpose**: Ensure consistent file handling, prevent common mistakes, and maintain repository hygiene.
+Applied to every staged file (`glob = "**"`):
 
-- **File Size Limits**: Prevents files larger than 1MB from being committed
-- **Merge Conflict Detection**: Catches unresolved merge conflicts
-- **File Format Validation**: Validates TOML, YAML, and JSON syntax
-- **Text Consistency**: Fixes line endings, trailing whitespace, and EOF issues
-- **Branch Protection**: Prevents direct commits to protected branches
+- `check-added-large-files`, `check-merge-conflict`, `check-case-conflict`
+- `check-symlinks`, `check-executables-have-shebangs`, `check-byte-order-marker`
+- `trailing-whitespace-fixer`, `end-of-file-fixer`, `mixed-line-ending-fixer`
+
+The last three are fixers: under `pre-commit` they rewrite and restage the file
+rather than failing the commit.
 
 ### 2. Rust-Specific Quality Checks
 
-**Purpose**: Enforce Rust code quality and compilation standards.
+- `fmt-check` and `clippy` on `*.rs`
+- `cargo-sort` on `**/Cargo.toml`, `cargo-lock` on the manifests and `Cargo.lock`
 
-- **rustfmt**: Automatic code formatting using standard Rust style
-- **clippy**: Comprehensive linting with strict enterprise rules including:
-  - `-D warnings`: Treat all warnings as errors
-  - `-D clippy::all`: Enable all clippy lints
-  - `-D clippy::pedantic`: Enable pedantic lints for extra quality
-  - `-W clippy::nursery`: Warn on experimental lints
-- **Compilation Check**: Ensures code compiles successfully
-- **Test Execution**: Runs full test suite before commit
-- **Documentation**: Verifies documentation builds correctly
+`clippy` here is `mise run cargo:clippy`. The stricter CI gate,
+`mise run cargo:clippy:strict`, is **not** part of the pre-commit set — run it
+before pushing (see [Development](./DEVELOPMENT.md)).
 
 ### 3. Security and Vulnerability Management
 
-**Purpose**: Prevent security vulnerabilities and credential leaks.
-
-- **Rust Security Audit**: Scans dependencies for known vulnerabilities using `cargo-audit`
-- **Dependency Policy**: Enforces security policies via `cargo-deny` and `deny.toml`
-- **Secret Detection**: Uses `detect-secrets` to find leaked credentials
-- **Private Key Detection**: Identifies accidentally committed private keys
-- **AWS Credential Detection**: Catches AWS access keys and secrets
+- `gitleaks` scans every staged file for secrets (config: `.gitleaks.toml`)
+- `audit` runs `cargo audit` when a manifest or lockfile changes
 
 ### 4. Dependency and License Management
 
-**Purpose**: Ensure supply chain security and license compliance.
-
-- **Cargo.lock Verification**: Ensures dependency lock file is up to date
-- **Unused Dependencies**: Identifies and removes unused dependencies via `cargo-machete`
-- **License Compliance**: Enforces enterprise-approved licenses only
-- **Source Validation**: Restricts dependencies to trusted sources
+- `deny` runs `cargo deny` when a manifest, lockfile or `deny.toml` changes
+- `comply` / `comply-format` check REUSE/SPDX headers across the tree;
+  `comply-fix` adds or refreshes the header on `*.rs`
 
 ### 5. Documentation and Standards
 
-**Purpose**: Maintain high-quality documentation and consistent formatting.
+- `rumdl` on `*.md`
+- `taplo` on `*.toml`, `yamllint-rs` on `*.{yml,yaml}`
+- `actionlint` on `.github/workflows/*.{yml,yaml}`
 
-- **Markdown Linting**: Uses markdownlint with enterprise-friendly rules
-- **Custom Markdown Checks**: Our integrated checker for heading/list formatting
-- **Conventional Commits**: Enforces conventional commit message format
-- **TOML Formatting**: Sorts and formats configuration files
+### 6. Repository Consistency
 
-### 6. Infrastructure and Configuration
+Narrow globs that guard generated or duplicated state:
 
-**Purpose**: Validate configuration files and infrastructure-as-code.
+- `commit-config` — fires on `commit-types.toml`, `scripts/commit-config.py`,
+  `committed.toml`, `cliff.toml` or `.gitmessage`, and fails if the generated
+  files drift from the manifest
+- `version-sync` — fires on `Cargo.toml`, `docs/package.json` or
+  `docs/reference/cli.md`, and fails if any restated version disagrees with the
+  `[workspace.package] version` anchor
+- `gitignore` — fires on `ignorefile.toml` or `.gitignore`
 
-- **GitHub Actions Validation**: Ensures workflow syntax is correct
-- **Configuration File Validation**: Checks TOML, YAML, and JSON files
-- **Enterprise Security Scanning**: Advanced threat detection
+### Commit messages
+
+The `commit-msg` hook runs `mise run commit:lint`, which is
+[committed](https://github.com/crate-ci/committed) reading `committed.toml`.
+Commits must follow Conventional Commits.
+
+`committed.toml`, `cliff.toml`'s parser block and `.gitmessage` are **generated**
+from `commit-types.toml` by `scripts/commit-config.py`. Edit the manifest, then:
+
+```bash
+mise run commit:config        # Regenerate
+mise run commit:config:check  # Fail on drift (what the hook runs)
+```
 
 ## Configuration Files
 
-### .pre-commit-config.yaml
-
-Main configuration file defining all hooks, their versions, and execution parameters. Key features:
-
-- **Fail Fast**: Stops on first failure for quick feedback
-- **Performance Optimized**: Resource-intensive hooks can be skipped in CI
-- **Version Controlled**: All hook versions are pinned for reproducibility
-- **Comprehensive Coverage**: 20+ different types of checks
-
-### deny.toml
-
-Enterprise security policy configuration for Rust dependencies:
-
-- **License Allowlist**: Only MIT, Apache-2.0, BSD, and other enterprise-friendly licenses
-- **Security Policies**: Automatic vulnerability detection and blocking
-- **Supply Chain Security**: Restricts dependencies to trusted sources
-- **Version Management**: Prevents multiple versions of same dependency
-
-### .secrets.baseline
-
-Baseline configuration for secret detection, preventing false positives while maintaining security.
-
-## Enterprise Features
-
-### Security-First Approach
-
-- **Zero-Trust Dependencies**: All dependencies must pass security screening
-- **Vulnerability Blocking**: Any known CVE in dependencies blocks commits
-- **Secret Prevention**: Multiple layers of credential leak prevention
-- **License Compliance**: Automatic license policy enforcement
-
-### Performance Optimization
-
-- **Selective Execution**: Resource-intensive checks can be disabled for faster feedback
-- **Intelligent Caching**: Pre-commit caches results for unchanged files
-- **Parallel Execution**: Multiple hooks run concurrently when possible
-- **CI Integration**: Optimized configuration for CI/CD environments
-
-### Developer Experience
-
-- **Clear Error Messages**: Detailed feedback on what needs to be fixed
-- **Auto-fixing**: Many issues are automatically resolved when possible
-- **Integration**: Works seamlessly with existing development workflows
-- **Documentation**: Comprehensive guides and examples
+| File | Purpose |
+| --- | --- |
+| `hk.pkl` | Step definitions, globs and hook wiring |
+| `deny.toml` | `cargo deny` licence and advisory policy |
+| `.gitleaks.toml` | Secret-scanning rules and allowlist |
+| `REUSE.toml` | SPDX/REUSE licensing metadata |
+| `committed.toml` | Commit-message rules (generated) |
+| `commit-types.toml` | Source of truth for commit types |
+| `taplo.toml`, `.rumdl.toml`, `.yamllint` | Formatter and linter settings |
+| `.github/actionlint.yaml` | Workflow-linter settings |
+| `ignorefile.toml` | Source of truth for `.gitignore` |
 
 ## Troubleshooting
 
-### Common Issues
-
-#### Hook Installation Fails
+### Hooks are not running
 
 ```bash
-# Clean and reinstall
-mise run pre-commit-clean
-mise run pre-commit-install
+git config --get core.hooksPath
+ls -la "$(git rev-parse --git-path hooks)"
+mise run hooks:install
 ```
 
-#### Rust Tools Not Found
+### A tool is missing
+
+Every tool is pinned in `mise.toml`. Reinstall with:
 
 ```bash
-# Ensure Rust components are installed
-rustup component add rustfmt clippy
-cargo install cargo-audit cargo-deny cargo-machete
+mise install
+mise doctor
 ```
 
-#### Secret Detection False Positives
+### A commit is slow
 
-Edit `.secrets.baseline` to allowlist legitimate secrets:
+hk only runs steps whose `glob` matches the staged files, so a slow commit
+usually means a Rust or manifest change pulled in `clippy`, `cargo audit` or
+`cargo deny`. Stage a narrower change set, or use `git commit --no-verify` and
+let CI do the full pass.
+
+### A fixer keeps rewriting a file
+
+`trailing-whitespace-fixer`, `end-of-file-fixer` and `mixed-line-ending-fixer`
+restage their own output under `pre-commit`. If an editor writes the file back
+during the commit, the two fight — save and close the file, then retry.
+
+### Generated files fail the hook
+
+`commit-config` and `gitignore` compare on-disk output against the manifest.
+Never hand-edit the generated side; regenerate instead:
 
 ```bash
-# Generate new baseline
-detect-secrets scan --baseline .secrets.baseline
+mise run commit:config
+mise run gitignore
 ```
-
-#### AWS Credentials Hook Disabled
-
-The AWS credentials detection hook is disabled by default for Rust projects. Enable it if your project uses AWS services by uncommenting the line in `.pre-commit-config.yaml`.
-
-#### Performance Issues
-
-For faster commits during development, you can skip resource-intensive hooks:
-
-```bash
-# Skip tests and coverage for quick commits
-SKIP=rust-test,rust-coverage git commit -m "quick fix"
-
-# Run only basic formatting and security checks
-SKIP=rust-clippy,rust-test,rust-audit git commit -m "quick fix"
-```
-
-Resource-intensive hooks:
-
-- `rust-coverage`: Only runs when manually requested (`pre-commit run --hook-stage manual`)
-- `rust-audit`: Only runs when Cargo files change
-- `rust-deny`: Only runs when dependency policy files change
-
-### Advanced Configuration
-
-#### Custom Hook Stages
-
-Hooks can be configured to run at different stages:
-
-- `commit`: Run on every commit (default)
-- `push`: Run only on push
-- `manual`: Run only when explicitly requested
-
-#### Enterprise Customization
-
-The configuration can be extended with:
-
-- Custom security scanners
-- Additional license policies
-- Organization-specific rules
-- Integration with enterprise security tools
-
-## Best Practices
-
-### For Developers
-
-1. **Run Hooks Regularly**: Use `mise run pre-commit-run` to test changes
-2. **Keep Dependencies Updated**: Regular `cargo audit` and updates
-3. **Review Hook Output**: Don't ignore warnings or suggestions
-4. **Use Conventional Commits**: Follow the established format
-
-### For Teams
-
-1. **Consistent Tooling**: Ensure all developers use same hook versions
-2. **Policy Updates**: Regularly review and update security policies
-3. **Training**: Educate team on security and quality standards
-4. **Monitoring**: Track hook effectiveness and developer experience
-
-### For Enterprise
-
-1. **Centralized Policies**: Maintain organization-wide configurations
-2. **Compliance Reporting**: Monitor license and security compliance
-3. **Tool Integration**: Connect with enterprise security and governance tools
-4. **Regular Audits**: Periodic review of security policies and effectiveness
 
 ## Integration with CI/CD
 
-The pre-commit configuration is designed to work seamlessly with CI/CD:
-
-- **GitHub Actions**: Hooks run automatically on pull requests
-- **Performance Tuning**: Resource-intensive hooks are skipped in CI
-- **Fail Fast**: Quick feedback on issues
-- **Comprehensive Coverage**: Full security and quality checking
-
-## Support and Maintenance
-
-### Updating Hooks
-
-```bash
-# Update all hooks to latest versions
-mise run pre-commit-update
-
-# Test updated configuration
-mise run pre-commit-run
-```
-
-### Adding New Hooks
-
-1. Edit `.pre-commit-config.yaml`
-2. Add hook configuration
-3. Test thoroughly
-4. Update this documentation
-
-### Policy Changes
-
-1. Review `deny.toml` for security policies
-2. Update license allowlists as needed
-3. Coordinate with enterprise security team
-4. Test against existing codebase
-
----
-
-This pre-commit configuration represents enterprise-grade standards for Rust development, balancing security, quality, and developer productivity. Regular maintenance and updates ensure it continues to provide value as the project evolves.
+The GitHub Actions pipeline runs the same step list, so a clean
+`mise run hooks:run` locally is a good predictor of a green CI lint job. CI adds
+checks the hooks deliberately leave out — `cargo:clippy:strict`, the full test
+matrix, and coverage.
