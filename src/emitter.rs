@@ -4,6 +4,8 @@
 
 //! YAML emitter for generating text output
 
+use crate::resolver::{PlainScalarType, resolve_plain_scalar};
+use crate::version::YamlVersion;
 use crate::{CommentedValue, Comments, Error, IndentStyle, QuoteStyle, Result, Value};
 use std::collections::HashMap;
 use std::io::Write;
@@ -371,19 +373,25 @@ impl BasicEmitter {
             return true;
         }
 
-        // String needs quoting if it could be interpreted as another type
-        let lower = s.to_ascii_lowercase();
-        if lower == "null"
-            || lower == "~"
-            || lower == "true"
-            || lower == "false"
-            || lower == "yes"
-            || lower == "no"
-            || lower == "on"
-            || lower == "off"
-            || s.parse::<i64>().is_ok()
-            || s.parse::<f64>().is_ok()
-        {
+        // A plain scalar the resolver reads back as anything other than a
+        // string changes type across a round-trip, so it has to be quoted.
+        //
+        // This asks the resolver instead of restating its rules, because the
+        // two must agree and a second copy is what let them drift: the list
+        // that used to live here covered `null`, the booleans and decimal
+        // numbers, but not the radix integers the resolver has accepted since
+        // it learned the `!!int` prefixes — so `String("0X0")` was emitted
+        // plain and read back as `Int(0)`.
+        //
+        // YAML 1.1 is deliberate. The emitter cannot know which version will
+        // read the document back, and 1.1 resolves a superset of 1.2 (`yes`,
+        // `no`, `on`, `off`, and bare `=`). Quoting against the superset is
+        // safe under either; quoting against 1.2 would emit `yes` plain and
+        // let a 1.1 reader turn it into a boolean.
+        if !matches!(
+            resolve_plain_scalar(s, YamlVersion::V1_1),
+            PlainScalarType::Str
+        ) {
             return true;
         }
 
@@ -1039,6 +1047,52 @@ mod tests {
             .emit(&Value::String("true".to_string()), &mut output)
             .unwrap();
         assert_eq!(String::from_utf8(output).unwrap(), "\"true\"\n");
+    }
+
+    /// A string that the resolver would read back as a radix integer has to be
+    /// quoted, or the round-trip silently changes its type: `String("0X0")`
+    /// emitted plain reads back as `Int(0)`. Both cases matter — the scanner
+    /// accepts the upper-case prefixes as well as the lower-case ones.
+    #[test]
+    fn test_emit_quotes_radix_int_lookalikes() {
+        for value in ["0x0", "0X0", "0o7", "0O7", "0b1", "0B1", "0xFF", "0XfF"] {
+            let mut emitter = BasicEmitter::new();
+            let mut output = Vec::new();
+
+            emitter
+                .emit(&Value::String(value.to_string()), &mut output)
+                .unwrap();
+            let rendered = String::from_utf8(output).unwrap();
+
+            assert_eq!(
+                rendered,
+                format!("\"{value}\"\n"),
+                "{value} resolves as an integer, so it must be quoted"
+            );
+        }
+    }
+
+    /// The counter-case: a radix prefix with no valid digits after it is just a
+    /// string, so quoting it would be noise.
+    #[test]
+    fn test_emit_leaves_non_numeric_radix_prefixes_plain() {
+        // `_` is not a digit `i64::from_str_radix` accepts, so `0x_` stays a
+        // string despite looking like a Rust integer literal.
+        for value in ["0x", "0X", "0o", "0b", "0xZZ", "0oz", "0b2", "x0", "0x_"] {
+            let mut emitter = BasicEmitter::new();
+            let mut output = Vec::new();
+
+            emitter
+                .emit(&Value::String(value.to_string()), &mut output)
+                .unwrap();
+            let rendered = String::from_utf8(output).unwrap();
+
+            assert_eq!(
+                rendered,
+                format!("{value}\n"),
+                "{value} is not an integer, so it should stay plain"
+            );
+        }
     }
 
     #[test]

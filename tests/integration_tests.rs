@@ -1069,3 +1069,53 @@ fn numeric_mapping_key_round_trips() {
     );
     assert_eq!(v, reloaded, "numeric-key mapping must round-trip");
 }
+
+#[test]
+fn radix_int_lookalike_strings_round_trip() {
+    // A `String` whose text the resolver reads as a radix integer must survive
+    // dump -> load as a `String`. Before the emitter delegated its quoting
+    // decision to the resolver it kept its own list of ambiguous spellings,
+    // which covered `null`, the booleans and decimal numbers but not the radix
+    // prefixes — so `String("0X0")` was emitted plain and came back `Int(0)`.
+    // The serde round-trip proptest found it by rolling "0X0".
+    let yaml = Yaml::new();
+
+    for text in [
+        "0x0",
+        "0X0",
+        "0o7",
+        "0O7",
+        "0b1",
+        "0B1",
+        "0xdeadBEEF",
+        "0XdeadBEEF",
+    ] {
+        let original = Value::String(text.to_string());
+        let dumped = yaml.dump_str(&original).expect("dump");
+        let reloaded = yaml.load_str(&dumped).expect("reload");
+
+        assert_eq!(
+            original, reloaded,
+            "{text} must stay a string across a round-trip (dumped as {dumped:?})"
+        );
+    }
+}
+
+#[test]
+fn dotted_inf_and_nan_lookalike_strings_round_trip() {
+    // Same defect class, different spelling: `.inf` and `.nan` are YAML 1.2
+    // floats, and the emitter's old list did not cover them either because
+    // Rust's `f64` parser rejects the leading dot.
+    let yaml = Yaml::new();
+
+    for text in [".inf", "-.inf", "+.INF", ".nan", ".NaN"] {
+        let original = Value::String(text.to_string());
+        let dumped = yaml.dump_str(&original).expect("dump");
+        let reloaded = yaml.load_str(&dumped).expect("reload");
+
+        assert_eq!(
+            original, reloaded,
+            "{text} must stay a string across a round-trip (dumped as {dumped:?})"
+        );
+    }
+}
