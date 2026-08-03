@@ -303,7 +303,7 @@ to the **v2.0.0** milestone: removing it necessarily breaks the public
 - [ ] Achieve >90% code coverage
 - [x] Add fuzzing tests (cargo-fuzz harness in `fuzz/`: `load_str`, `load_str_strict`, `roundtrip` — #28)
 - [ ] Implement property-based testing
-- [x] Add YAML test suite compliance tests (735/735 against `yaml/yaml-test-suite` `data-2022-01-17`; harness in `yaml-test-suite/`, run via `mise run test-yaml-suite`)
+- [x] Add YAML test suite compliance tests (735/735 against `yaml/yaml-test-suite` `data-2022-01-17`; harness in `yaml-test-suite/`, run via `mise run test:yaml-suite`)
 - [ ] Create integration tests with popular frameworks
 
 ## Priority 6: Advanced Features 🔧

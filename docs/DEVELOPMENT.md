@@ -28,11 +28,11 @@ This document covers the development workflow, tools, and processes for the rust
    # ... code changes ...
 
    # Test your changes
-   mise run quick-check  # Format, lint, and test
+   mise run check:quick    # Format, lint, and test
    # OR individual commands:
-   mise run test         # Run all tests
-   mise run lint         # Run clippy
-   mise run format       # Format code
+   mise run test           # Run all tests
+   mise run cargo:clippy   # Run clippy
+   mise run cargo:fmt      # Format code
    ```
 
 3. **Commit with conventional format**:
@@ -219,28 +219,28 @@ The project includes a comprehensive set of mise tasks (60+ commands). Run `mise
 ##### Quick Development
 
 ```bash
-mise run setup         # Set up development environment
-mise run quick-check   # Fast: format + lint + lib tests
-mise run ci            # Full CI pipeline locally
+mise run setup        # Set up development environment
+mise run check:quick  # Fast: format + lint + lib tests
+mise run ci           # Full CI pipeline locally
 ```
 
 ###### Testing
 
 ```bash
 mise run test              # All tests
-mise run test-lib          # Library tests only
-mise run test-integration  # Integration tests
-mise run test-security     # Security-specific tests
+mise run test:lib          # Library tests only
+mise run test:integration  # Integration tests
+mise run test:security     # Security-specific tests
 ```
 
 ###### Code Quality
 
 ```bash
-mise run format           # Format code
-mise run lint             # Run clippy
-mise run clippy-strict    # Strict clippy (CI settings)
-mise run audit            # Security audit
-mise run deny             # Cargo deny checks
+mise run cargo:fmt            # Format code
+mise run cargo:clippy         # Run clippy
+mise run cargo:clippy:strict  # Strict clippy (CI settings)
+mise run cargo:audit          # Security audit
+mise run cargo:deny           # Cargo deny checks
 ```
 
 ## Code Quality Standards
@@ -255,8 +255,14 @@ cargo fmt           # Fix formatting
 ### Linting
 
 ```bash
-cargo clippy --all-targets --all-features -- -D warnings
+mise run cargo:clippy         # -D warnings
+mise run cargo:clippy:strict  # what CI actually runs
 ```
+
+`cargo:clippy:strict` is the gate that matters. On top of `-D warnings` it denies
+`clippy::all` and `clippy::pedantic` and warns on `clippy::nursery`, with a short
+allow-list of noisy lints. Code that passes plain `-D warnings` can still be
+rejected by CI, so run the strict task before pushing.
 
 ### Testing
 
@@ -329,15 +335,18 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 **Version mismatch in release:**
 
-- Ensure `Cargo.toml` version matches git tag
+- Run `mise run version:check` — it fails if any file restating the version
+  disagrees with the `[workspace.package] version` anchor in `Cargo.toml`
+- `mise run version:sync` realigns them from the anchor
 - Check `GitVersion.yml` configuration
 
 ### Debug Commands
 
 ```bash
-# Check git hooks
-ls -la .githooks/
+# Check git hooks (managed by hk — see hk.pkl)
+mise run hooks:install                        # (re)install them
 git config --get core.hooksPath
+ls -la "$(git rev-parse --git-path hooks)"
 
 # Test the commit-message linter
 echo "feat: test message" | committed --commit-file -

@@ -172,7 +172,7 @@ realistic inputs.
 - Parity test against `serde_yaml` passes (≥ 30 cases).
 - `benches/serde_load.rs` and `benches/serde_dump.rs` build and produce
   numbers.
-- `mise run ci` ✓, `mise run check-all` ✓, conformance 735 / 735 ✓.
+- `mise run ci` ✓, `mise run check:all` ✓, conformance 735 / 735 ✓.
 - All new code feature-gated; default build untouched.
 
 ## Open questions / future work

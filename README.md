@@ -591,38 +591,38 @@ mise run test
 mise run ci
 
 # Quick development checks (format, lint, test)
-mise run quick-check
+mise run check:quick
 ```
 
 ### Development Commands
 
-The project uses [mise](https://mise.jdx.dev) as its task runner, with 60+ tasks for the development workflow (run `mise tasks` to list them all):
+The project uses [mise](https://mise.jdx.dev) as its task runner. Task names are colon-namespaced by area (`cargo:`, `test:`, `coverage:`, `check:`); run `mise tasks` to list them all.
 
 #### Testing
 
 ```bash
 mise run test              # Run all tests
-mise run test-lib          # Run library tests only
-mise run test-integration  # Run integration tests
-mise run test-security     # Run security-specific tests
-mise run test-release      # Run tests in release mode
+mise run test:lib          # Run library tests only
+mise run test:integration  # Run integration tests
+mise run test:security     # Run security-specific tests
+mise run test:release      # Run tests in release mode
 ```
 
 ##### Code Quality
 
 ```bash
-mise run format           # Format code with rustfmt
-mise run lint             # Run clippy lints
-mise run clippy-strict    # Run strict clippy with CI settings
-mise run audit            # Run security audit
-mise run deny             # Run cargo deny checks
+mise run cargo:fmt            # Format code with rustfmt
+mise run cargo:clippy         # Run clippy lints
+mise run cargo:clippy:strict  # Strict clippy — the real CI gate (denies pedantic)
+mise run cargo:audit          # Run security audit
+mise run cargo:deny           # Run cargo deny checks
 ```
 
 ###### Documentation & Reports
 
 ```bash
 mise run doc              # Build documentation
-mise run doc-open         # Build and open documentation
+mise run doc:open         # Build and open documentation
 mise run bench            # Run performance benchmarks
 ```
 
@@ -630,14 +630,13 @@ mise run bench            # Run performance benchmarks
 
 ```bash
 mise run coverage         # Generate test coverage report (CI-compatible)
-mise run coverage-html    # Generate HTML coverage report
-mise run coverage-view    # Generate and open HTML coverage in browser
-mise run coverage-clean   # Clean coverage artifacts
-mise run coverage-install-tools  # Install coverage tools
+mise run coverage:html    # Generate HTML coverage report
+mise run coverage:view    # Generate and open HTML coverage in browser
+mise run coverage:clean   # Clean coverage artifacts
 
 # Alternative coverage tools
-mise run coverage-llvm    # Generate coverage using llvm-cov
-mise run coverage-llvm-html  # Generate HTML coverage with llvm-cov
+mise run coverage:llvm       # Generate coverage using llvm-cov
+mise run coverage:llvm:html  # Generate HTML coverage with llvm-cov
 ```
 
 ###### CI/CD & Checks
@@ -645,16 +644,17 @@ mise run coverage-llvm-html  # Generate HTML coverage with llvm-cov
 ```bash
 mise run ci               # Full CI pipeline (format, lint, test, security)
 mise run check            # Basic checks (build, test, format, lint)
-mise run check-all        # Comprehensive checks with audit and coverage
-mise run release-check    # Check if ready for release
+mise run check:quick      # Fast pre-commit loop (format, lint, test)
+mise run check:all        # Comprehensive checks with audit and coverage
+mise run release:check    # Check if ready for release
 ```
 
 ###### Markdown & Documentation
 
 ```bash
-mise run check-markdown   # Check markdown formatting issues
-mise run fix-markdown     # Fix common markdown formatting issues
-mise tasks                # Show all available tasks
+mise run markdownlint      # Check markdown formatting issues
+mise run markdownlint:fix  # Fix common markdown formatting issues
+mise tasks                 # Show all available tasks
 ```
 
 ## Documentation

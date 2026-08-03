@@ -55,7 +55,7 @@ git commit -m "chore(tests): bump yaml-test-suite to data-YYYY-MM-DD"
 ## Running the harness
 
 ```bash
-mise run test-yaml-suite
+mise run test:yaml-suite
 
 # or directly:
 cargo test -p yaml-test-suite -- --nocapture
