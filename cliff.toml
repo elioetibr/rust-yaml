@@ -45,10 +45,21 @@ trim = true
 
 [git]
 conventional_commits = true
-# Only full SemVer tags (vX.Y.Z) count as releases. Excludes the floating
-# major/minor pointer tags (v0, v0.0, v1, v1.0) so they don't create spurious
-# or duplicate release sections in the changelog.
-tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+# Release tags: `vX.Y.Z` and `vX.Y.Z-N`, where N is the commits-since-source
+# counter that `mise run version:tag` derives from GitVersion's SemVer (v1.2.0-42).
+#
+# The `-N` group is OPTIONAL, and that is the load-bearing part: every tag
+# released so far is bare (v1.1.0 back to v0.0.1). A pattern accepting only the
+# `-N` form matches exactly one tag in this repository and silently drops all
+# fourteen historical sections from the changelog.
+#
+# The counter is restricted to DIGITS rather than any prerelease identifier.
+# Off the default branch GitVersion labels with the branch name, so
+# `version:tag` yields `v1.2.0-fix-tool-chains.1`; accepting that shape would
+# turn every tagged feature branch into its own release section. Floating
+# pointer tags (v0, v0.0, v1, v1.0) stay excluded by the three required
+# components.
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9]+.*)?$"
 filter_unconventional = false
 split_commits = false
 # Kept in sync with changelog-configuration.json (mikepenz) — same emoji,
