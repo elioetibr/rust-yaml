@@ -197,13 +197,80 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 4. **Documentation**: All public APIs must be documented
 5. **Testing**: All features must have tests
 
+#### Engineering Principles
+
+- **DRY** — one representation per piece of knowledge. Where two places must
+  agree, generate one from the other (`commit-types.toml` → `committed.toml`,
+  `cliff.toml`, `.gitmessage`) or add a drift check (`mise run version:check`).
+- **KISS** — prefer the straightforward solution over the clever one.
+- **YAGNI** — build what is needed now, not what might be needed later.
+- **TDD** — write the failing test first, then the smallest change that passes
+  it, then refactor.
+- **SOLID** — single responsibility; open for extension, closed for
+  modification; subtypes substitutable for their base; no client forced to
+  depend on methods it does not use; depend on abstractions, not concretions.
+- **Separation of concerns** — the load pipeline (`scanner` → `parser` →
+  `composer` → `constructor`) and the dump pipeline (`representer` →
+  `serializer` → `emitter`) are the architectural seams. Keep changes inside
+  the stage that owns the concern.
+- **Boy Scout rule** — leave touched code cleaner than you found it. This is
+  scoped to what you touch; unrelated cleanup belongs in its own PR.
+- **Dependency injection** — pass collaborators in rather than constructing
+  them inside, so they can be substituted in tests.
+
+#### Code Quality
+
+Thresholds are enforced by `.clippy.toml`, not by review — treat that file as
+the source of truth and this list as a summary:
+
+- Cognitive complexity ≤ 30 per function; ≤ 10 function arguments; type
+  complexity ≤ 300.
+- New modules start small and focused. `src/scanner/mod.rs` and
+  `src/parser/mod.rs` are known outliers (4,100 and 2,600 lines); they are not
+  a licence to grow others, and splitting them is welcome when you are already
+  working there.
+- Meaningful names, no abbreviations.
+- Validate all external input. Never hardcode secrets.
+- Profile before optimizing — `mise run bench` and `docs/PROFILING.md`.
+
 #### Rust Style
 
 - Follow [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
-- Use `rustfmt` with default settings
-- Address all `clippy` warnings
-- Prefer explicit error types over `anyhow` in library code
-- Use `IndexMap` for preserving key order in mappings
+- Use `rustfmt` with default settings — `mise run cargo:fmt`
+- MSRV is **1.85**, edition **2024**. Do not use APIs newer than the MSRV;
+  both are declared once in `[workspace.package]`.
+- `cargo:clippy:strict` is the gate that matters. It denies `clippy::all` and
+  `clippy::pedantic` on top of `-D warnings`, so code passing plain
+  `cargo clippy` can still be rejected by CI.
+- **No `unwrap()` / `expect()` / panics on scanner or parser input paths.**
+  `[profile.release]` sets `panic = "abort"`, so a panic on untrusted input
+  kills the host process — it is a denial-of-service bug, not a crash.
+- The crate is `#![deny(unsafe_code)]` (`src/lib.rs`). The single exception is
+  the memory map in `src/streaming_async.rs`, which carries a local
+  `#[allow(unsafe_code)]` and a `// SAFETY:` comment stating the caller
+  contract. Any new `unsafe` needs both, plus a reason it cannot be safe.
+- Errors are `Result` plus the crate's own `Error` enum (`src/error.rs`). This
+  crate deliberately depends on neither `thiserror` nor `anyhow`; keep it that
+  way and extend `Error` instead.
+- `#[must_use]` on builders and on returns that are meaningless to discard.
+- Prefer borrowing over cloning on hot paths; take `&str` over `String`.
+- Use `IndexMap` for preserving key order in mappings.
+- `mise run cargo:deny` and `mise run cargo:audit` gate licences and advisories.
+
+#### Before You Commit
+
+The `hk` pre-commit hook runs most of this automatically (see
+[Git hooks](docs/PRE_COMMIT.md)), but the full local gate is:
+
+```bash
+mise run cargo:fmt            # 1. format
+mise run cargo:clippy:strict  # 2. lint at the strictest setting — zero warnings
+mise run test                 # 3. tests
+mise run ci                   # or all of the above, as CI runs it
+```
+
+Do not leave throwaway test scripts or test-output directories in the tree;
+generate them, use them, remove them.
 
 #### YAML Implementation
 

@@ -12,7 +12,8 @@ cognitive-complexity-threshold = 30
 # Allow enum variants to share a prefix (ErrorKind has many related variants)
 enum-variant-name-threshold = 5
 
-# Max function arguments — Skald types are simple, keep this reasonable
+# Max function arguments — the scanner and emitter carry state in structs rather
+# than long argument lists, so this ceiling should rarely be approached
 too-many-arguments-threshold = 10
 
 # Type complexity — keep low for readable, auditable type signatures
