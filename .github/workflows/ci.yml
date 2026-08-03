@@ -840,6 +840,20 @@ jobs:
       - name: GitHub Actions Bot Setup
         uses: ./.github/actions/bot-setup
 
+      # mise is here to RUN a task, not to provision the workspace. `install:
+      # false` matters: the pinned toolset includes ~26 cargo tools, and
+      # installing them in a job that only renders a changelog would cost more
+      # than the job itself. git-cliff is then installed on its own, from the
+      # version mise.toml pins, so CI and a developer run the same binary.
+      - uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+        with:
+          install: false
+          cache_key: "mise-{{platform}}-{{version}}-{{file_hash}}"
+          github_token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
+
+      - name: Install git-cliff
+        run: mise install git-cliff
+
       - name: Install Rust toolchain
         uses: elioseverojunior/rust-toolchain@365ab4286518f5f3d13c12ed638024bdc86f413b # v0.3.0-1
         with:
@@ -967,23 +981,37 @@ jobs:
         # path through `args` (substituted as text before bash runs) is the
         # only reliable way to steer the output file — relying on an `OUTPUT`
         # env here is what produced an empty RELEASE_NOTES.md before.
-        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
+        # `mise run changelog`, not orhun/git-cliff-action. git-cliff was invoked
+        # from two places -- that action and the `changelog` task in mise.toml --
+        # each carrying its own config path and range selectors, free to drift.
+        # mise.toml also pins the version (git-cliff = 2.13.1), so CI and a local
+        # run use the same binary.
+        #
+        # GITHUB_TOKEN is REQUIRED, not decorative: git-cliff calls the GitHub API
+        # to render the "by @user in #NN" attributions, and unauthenticated it
+        # gets a 403 and PANICS -- verified locally. This is what the replaced
+        # action supplied.
+        #
+        # `secrets.GITHUB_TOKEN` is available to every workflow, but GitHub never
+        # exports it to a `run:` step's environment; a process only sees
+        # $GITHUB_TOKEN if a workflow maps it, as here. Same fallback chain the
+        # checkout steps use, so the app identity is preferred where it exists and
+        # the job token is the last resort.
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          config: cliff.toml
-          args: --latest --strip header --output RELEASE_NOTES.md
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
+        run: mise run changelog --latest --strip header --output RELEASE_NOTES.md
 
       - name: Release
         if: ${{ github.ref_name == github.event.repository.default_branch }}
         id: release
         shell: bash -l {0}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN || github.token }}
           # Path to the notes file written by the git-cliff step above
           # (its `OUTPUT` env). Kept as an env var so the shell quoting is
           # explicit and the value shows up in the step's rendered log.
           RELEASE_NOTES_FILE: RELEASE_NOTES.md
+          VERSION: "v${{ needs.version.outputs.version }}"
         run: |
           #!/usr/bin/env bash
 
@@ -1029,7 +1057,7 @@ jobs:
           fi
           echo "::endgroup::"
 
-          echo "::group::Create release v${{ needs.version.outputs.version }}"
+          echo "::group::Create release ${VERSION}"
           # `-F <file>` is the short form of `--notes-file`. Reading
           # the body from disk avoids shell-escaping multi-line
           # markdown on the command line AND keeps `gh release create`
@@ -1039,7 +1067,7 @@ jobs:
           # The version comes from the `version` job (GitVersion) via
           # `needs`, matching the tag the Tagging step created above;
           # `--verify-tag` then confirms that tag exists before release.
-          gh release create "v${{ needs.version.outputs.version }}" \
+          gh release create "${VERSION}" \
             -F "${RELEASE_NOTES_FILE}" \
             --verify-tag \
             --latest
